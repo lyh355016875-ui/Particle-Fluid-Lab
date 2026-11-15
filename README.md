@@ -5,7 +5,16 @@
 ## 在线体验
 
 - 发布版：https://4mdwqmzrj60qt.doubao.link/app/app_17hzwhvt34k
-- 仓库根目录的 `index.html` 即完整源码，也可在仓库 Settings → Pages 中启用 GitHub Pages。
+- GitHub Pages：根目录已有 `index.html`，可在仓库 Settings → Pages 中选择 **Deploy from a branch → main → / (root)** 启用。
+
+## 仓库结构
+
+| 路径 | 说明 |
+| --- | --- |
+| `index.html` | 可直接运行的完整页面，也是 GitHub Pages 入口 |
+| `src/粒子流体实验室.html` | 原始源码归档，与 `index.html` 内容一致 |
+| `src/README.md` | 源码与运行说明 |
+| `THIRD_PARTY_NOTICES.md` | 第三方依赖与许可说明 |
 
 ## 功能
 
@@ -19,7 +28,7 @@
 
 ## 运行
 
-直接用 Chrome / Edge 打开 `index.html`（需要 WebGL2）。
+直接用 Chrome / Edge 打开 `index.html` 或 `src/粒子流体实验室.html`（需要 WebGL2）。也可以在本目录启动任意静态服务器后访问。
 
 ## 说明
 
