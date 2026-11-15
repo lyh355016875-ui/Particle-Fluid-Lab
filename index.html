@@ -1,0 +1,2600 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>粒子流体实验室 · PBF 实时流体沙盘</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23060b0f'/%3E%3Cpath d='M16 4c5 7 8 11 8 15a8 8 0 0 0 16 0c0-4-3-8-8-11z' fill='%2346d8c7'/%3E%3Ccircle cx='13' cy='15' r='2' fill='%23060b0f' opacity='.55'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#05090c;
+  --bg-2:#070d12;
+  --panel:#0a1117;
+  --panel-2:#0d151c;
+  --line:rgba(132,178,194,.14);
+  --line-2:rgba(132,178,194,.26);
+  --text:#dce8ec;
+  --muted:#7e949e;
+  --dim:#556a74;
+  --accent:#46d8c7;
+  --accent-soft:rgba(70,216,199,.12);
+  --accent-2:#a6f5ea;
+  --amber:#e2a45f;
+  --sans:"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --serif:Georgia,"Times New Roman","Songti SC","STSong","SimSun","Noto Serif CJK SC",serif;
+  --mono:ui-monospace,"SFMono-Regular","Cascadia Mono","JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  height:100vh;min-height:560px;overflow:clip;
+  background:
+    radial-gradient(1100px 620px at 12% -12%,rgba(33,86,100,.20),transparent 62%),
+    radial-gradient(900px 500px at 96% 108%,rgba(22,54,64,.16),transparent 60%),
+    var(--bg);
+  color:var(--text);font-family:var(--sans);font-size:14px;
+  -webkit-font-smoothing:antialiased;
+}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:clip}
+
+/* ===== 顶栏 ===== */
+.topbar{
+  height:68px;flex:0 0 68px;display:flex;align-items:center;gap:26px;
+  padding:0 20px 0 22px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(9,16,21,.92),rgba(6,11,15,.88));
+}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand-mark{width:34px;height:34px;flex:0 0 34px;color:var(--accent);opacity:.95}
+.brand-text h1{
+  margin:0;font-family:var(--serif);font-size:23px;font-weight:600;letter-spacing:.035em;
+  line-height:1.1;white-space:nowrap;
+}
+.brand-text p{
+  margin:4px 0 0;font-family:var(--mono);font-size:9px;letter-spacing:.18em;
+  color:var(--dim);text-transform:uppercase;white-space:nowrap;
+}
+.telemetry{
+  display:flex;align-items:stretch;gap:0;margin-left:auto;height:40px;
+  border:1px solid var(--line);background:rgba(5,10,13,.5);
+}
+.tele{
+  min-width:86px;padding:5px 12px 4px;display:flex;flex-direction:column;justify-content:center;
+  border-right:1px solid var(--line);position:relative;
+}
+.tele:last-child{border-right:0}
+.tele .k{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:var(--dim);line-height:1.2}
+.tele .v{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--text);line-height:1.35;white-space:nowrap}
+.tele .v small{font-size:9px;color:var(--dim);margin-left:2px}
+.tele.accent .v{color:var(--accent-2)}
+.header-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.hbtn{
+  height:34px;padding:0 12px;border:1px solid var(--line-2);background:transparent;
+  color:var(--muted);font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+  transition:color .15s,border-color .15s,background .15s;display:inline-flex;align-items:center;gap:7px;
+}
+.hbtn:hover{color:var(--text);border-color:rgba(132,178,194,.45);background:rgba(70,216,199,.05)}
+.hbtn.primary{color:var(--accent);border-color:rgba(70,216,199,.45);background:var(--accent-soft)}
+.hbtn svg{width:14px;height:14px}
+#btnConsole{display:none}
+
+/* ===== 工作区 ===== */
+.workspace{
+  flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 326px;
+  gap:16px;padding:14px 18px 16px;
+}
+.stage-col{min-width:0;min-height:0;display:flex;flex-direction:column}
+.stage{
+  flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;
+  border:1px solid rgba(132,178,194,.22);
+  background:#060b0f;
+  box-shadow:0 18px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03);
+  position:relative;
+}
+.stage-bar{
+  flex:0 0 30px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 11px;border-bottom:1px solid var(--line);background:var(--panel);
+  font-family:var(--mono);font-size:9px;letter-spacing:.11em;color:var(--dim);
+  user-select:none;
+}
+.stage-bar .left,.stage-bar .right{display:flex;align-items:center;gap:9px;min-width:0}
+.stage-bar .item{white-space:nowrap}
+.stage-bar .sep{width:1px;height:11px;background:var(--line-2)}
+.run-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 7px rgba(70,216,199,.8);flex:0 0 5px}
+.run-dot.paused{background:var(--amber);box-shadow:0 0 7px rgba(226,164,95,.6)}
+.run-label{color:var(--accent);letter-spacing:.16em}
+.run-label.paused{color:var(--amber)}
+.view-label{color:var(--muted)}
+.canvas-wrap{flex:1;min-height:0;position:relative;overflow:hidden;background:#060b0f}
+#glCanvas,#fxCanvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#glCanvas{background:#060b0f}
+#fxCanvas{pointer-events:none}
+#glCanvas{touch-action:none;cursor:crosshair}
+.corner{position:absolute;width:13px;height:13px;pointer-events:none;opacity:.5}
+.corner::before,.corner::after{content:"";position:absolute;background:var(--accent);opacity:.35}
+.corner::before{width:13px;height:1px}
+.corner::after{width:1px;height:13px}
+.c-tl{top:6px;left:6px}.c-tr{top:6px;right:6px}.c-bl{bottom:6px;left:6px}.c-br{bottom:6px;right:6px}
+.c-tr::before,.c-br::before{right:0}.c-tr::after,.c-br::after{right:0}
+.c-bl::before,.c-br::before{bottom:0}.c-bl::after,.c-br::after{bottom:0}
+.stage-note{
+  position:absolute;left:50%;bottom:12px;transform:translateX(-50%);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:rgba(170,200,210,.55);
+  padding:5px 10px;border:1px solid rgba(132,178,194,.12);background:rgba(5,10,14,.62);
+  pointer-events:none;white-space:nowrap;transition:opacity .4s;z-index:2;
+}
+.stage-note.hide{opacity:0}
+
+/* ===== 工具坞 ===== */
+.dock{
+  flex:0 0 62px;display:flex;align-items:center;gap:10px;padding:8px 10px;
+  border-top:1px solid var(--line);background:var(--panel);
+}
+.tool-group{display:flex;align-items:center;gap:4px;min-width:0}
+.tool{
+  position:relative;height:44px;min-width:58px;padding:4px 8px 3px;border:1px solid transparent;
+  background:transparent;color:var(--dim);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  transition:color .15s,background .15s,border-color .15s;
+}
+.tool svg{width:19px;height:19px}
+.tool span{font-size:10.5px;letter-spacing:.04em;line-height:1.1}
+.tool kbd{
+  position:absolute;top:2px;right:4px;font-family:var(--mono);font-size:7px;color:rgba(125,147,157,.55);
+  border:0;background:transparent;padding:0;
+}
+.tool:hover{color:var(--text);background:rgba(255,255,255,.025)}
+.tool.is-active{color:var(--accent-2);border-color:rgba(70,216,199,.38);background:var(--accent-soft)}
+.tool.is-active svg{color:var(--accent)}
+.tool.is-active kbd{color:rgba(166,245,234,.6)}
+.dock-spacer{flex:1;min-width:6px}
+.brush-read{
+  display:flex;align-items:baseline;gap:3px;font-family:var(--mono);font-size:9px;color:var(--dim);
+  letter-spacing:.08em;white-space:nowrap;padding-right:4px;
+}
+.brush-read b{font-size:12px;color:var(--muted);font-weight:400;font-variant-numeric:tabular-nums}
+.brush-read small{font-size:8px;color:var(--dim)}
+.dock-actions{display:flex;align-items:center;gap:2px}
+.icon-btn{
+  width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid transparent;background:transparent;color:var(--muted);transition:all .15s;
+}
+.icon-btn svg{width:17px;height:17px}
+.icon-btn:hover{color:var(--text);border-color:var(--line);background:rgba(255,255,255,.025)}
+.icon-btn.is-active{color:var(--accent);border-color:rgba(70,216,199,.3);background:var(--accent-soft)}
+.dock-hint{
+  flex:0 0 22px;padding:0 12px;display:flex;align-items:center;gap:14px;
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;color:var(--dim);
+  border-top:1px solid rgba(132,178,194,.08);background:rgba(6,11,15,.85);white-space:nowrap;overflow:hidden;
+}
+.dock-hint span{opacity:.85}
+
+/* ===== 控制台 ===== */
+.console{
+  min-height:0;border:1px solid var(--line);background:
+    linear-gradient(180deg,rgba(13,21,28,.85),rgba(8,14,19,.9));
+  overflow-y:auto;padding:4px 16px 18px;
+  scrollbar-width:thin;scrollbar-color:rgba(132,178,194,.28) transparent;
+}
+.console::-webkit-scrollbar{width:6px}
+.console::-webkit-scrollbar-thumb{background:rgba(132,178,194,.25)}
+.console-head{display:flex;align-items:center;justify-content:space-between;padding:12px 0 10px}
+.console-head .t{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;color:var(--dim)}
+.console-close{display:none;width:32px;height:32px;border:1px solid var(--line);background:transparent;color:var(--muted);align-items:center;justify-content:center}
+.sec{padding:14px 0 16px;border-top:1px solid var(--line)}
+.sec:first-of-type{border-top:1px solid var(--line)}
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+.sec-title{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--muted);display:flex;align-items:center;gap:8px}
+.sec-title::before{content:"";width:2px;height:9px;background:var(--accent);opacity:.55}
+.sec-note{font-family:var(--mono);font-size:8px;letter-spacing:.05em;color:var(--dim)}
+
+.preset-list{display:flex;flex-direction:column;gap:1px}
+.preset{
+  display:grid;grid-template-columns:26px minmax(0,1fr) auto;align-items:center;gap:10px;
+  min-height:42px;padding:6px 8px;border:0;border-left:2px solid transparent;
+  background:transparent;text-align:left;color:var(--muted);transition:background .15s,color .15s;
+}
+.preset:hover{background:rgba(255,255,255,.025);color:var(--text)}
+.preset.is-active{border-left-color:var(--accent);background:rgba(70,216,199,.055);color:var(--text)}
+.swatch{width:22px;height:22px;border:1px solid rgba(255,255,255,.12);position:relative;overflow:hidden;border-radius:50%}
+.swatch::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 32% 28%,var(--s2),var(--s1) 62%,#05090c 100%)}
+.p-name{font-size:12.5px;letter-spacing:.02em}
+.p-sub{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:.04em;margin-top:2px;display:block}
+.p-tag{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:.04em}
+.preset.is-active .p-tag{color:rgba(166,245,234,.65)}
+
+.ctrl{margin:12px 0 0}
+.ctrl:first-child{margin-top:0}
+.ctrl-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:5px}
+.ctrl label{font-size:11.5px;color:var(--muted);letter-spacing:.02em;white-space:nowrap}
+.ctrl label i{font-family:var(--serif);font-style:italic;color:var(--dim);font-size:12px;margin-left:1px}
+.ctrl output{font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--text);white-space:nowrap}
+.ctrl output small{font-family:var(--mono);font-size:8px;color:var(--dim);margin-left:2px}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;display:block;width:100%;height:18px;margin:0;
+  background:transparent;cursor:pointer;--fill:50%;
+}
+input[type=range]::-webkit-slider-runnable-track{
+  height:2px;background:linear-gradient(to right,var(--accent) 0 var(--fill),#22323a var(--fill) 100%);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:11px;height:11px;margin-top:-4.5px;border-radius:1px;
+  background:#e8fbf7;border:1px solid #05090c;box-shadow:0 0 0 1px rgba(70,216,199,.5),0 2px 6px rgba(0,0,0,.5);
+}
+input[type=range]::-moz-range-track{height:2px;background:#22323a}
+input[type=range]::-moz-range-progress{height:2px;background:var(--accent)}
+input[type=range]::-moz-range-thumb{width:10px;height:10px;border-radius:1px;background:#e8fbf7;border:1px solid #05090c}
+
+.seg{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;border:1px solid var(--line);padding:2px;background:rgba(4,8,11,.5)}
+.seg button{
+  height:44px;border:0;background:transparent;color:var(--dim);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  transition:color .15s,background .15s;
+}
+.seg button svg{width:15px;height:15px}
+.seg button span{font-size:9.5px;letter-spacing:.02em}
+.seg button:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.seg button.is-active{color:var(--accent-2);background:var(--accent-soft);box-shadow:inset 0 0 0 1px rgba(70,216,199,.25)}
+.seg button.is-active svg{color:var(--accent)}
+.leg{display:flex;align-items:center;gap:7px;margin-top:8px;font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:.04em;transition:opacity .2s}
+.leg[hidden]{display:none}
+.leg .leg-bar{flex:1;height:5px;background:linear-gradient(90deg,#16305c,#2b8fb0,#46d8c7,#e8a24a);opacity:.85}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px;margin-top:8px}
+.toggle-row .lbl{font-size:11.5px;color:var(--muted)}
+.toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;height:32px}
+.toggle input{position:absolute;opacity:0;width:1px;height:1px}
+.toggle .track{width:34px;height:18px;border:1px solid var(--line-2);background:#0b141a;position:relative;transition:background .15s,border-color .15s}
+.toggle .knob{position:absolute;top:3px;left:3px;width:10px;height:10px;background:#6d838d;transition:transform .15s,background .15s}
+.toggle input:checked + .track{border-color:rgba(70,216,199,.55);background:rgba(70,216,199,.14)}
+.toggle input:checked + .track .knob{transform:translateX(16px);background:var(--accent)}
+.toggle input:focus-visible + .track{outline:2px solid var(--accent);outline-offset:2px}
+
+.act-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px}
+.act{
+  height:36px;border:1px solid var(--line);background:rgba(255,255,255,.02);color:var(--muted);
+  font-family:var(--mono);font-size:9px;letter-spacing:.06em;display:flex;align-items:center;justify-content:center;gap:7px;
+  transition:all .15s;
+}
+.act svg{width:13px;height:13px}
+.act:hover{color:var(--text);border-color:var(--line-2);background:rgba(255,255,255,.035)}
+.act.warn:hover{color:var(--amber);border-color:rgba(226,164,95,.4)}
+
+.console-foot{padding:16px 0 4px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.console-foot .ver{font-family:var(--mono);font-size:8px;letter-spacing:.1em;color:var(--dim)}
+.link-btn{border:0;background:transparent;color:var(--muted);font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 0;border-bottom:1px solid var(--line-2)}
+.link-btn:hover{color:var(--accent)}
+
+/* ===== 帮助 ===== */
+.modal{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(2,5,7,.82)}
+.modal.is-open{display:flex}
+.modal-panel{
+  width:min(780px,100%);max-height:88vh;overflow-y:auto;background:#0a1116;
+  border:1px solid rgba(132,178,194,.32);box-shadow:0 30px 100px rgba(0,0,0,.65);
+  padding:26px 30px 30px;position:relative;
+  scrollbar-width:thin;scrollbar-color:rgba(132,178,194,.3) transparent;
+}
+.modal-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border:1px solid var(--line);background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.modal-close:hover{color:var(--text);border-color:var(--line-2)}
+.modal h2{margin:0;font-family:var(--serif);font-size:27px;font-weight:600;letter-spacing:.03em}
+.modal .lede{margin:8px 0 22px;font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--dim)}
+.m-sec{padding:18px 0;border-top:1px solid var(--line)}
+.m-sec h3{margin:0 0 10px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--accent);font-weight:400}
+.m-sec p{margin:0 0 9px;font-size:13px;line-height:1.85;color:#b7c8ce;max-width:66ch}
+.m-sec p strong{color:var(--text);font-weight:600}
+.eq{
+  margin:10px 0 12px;padding:12px 14px;border-left:2px solid rgba(70,216,199,.4);
+  background:rgba(4,9,12,.6);font-family:var(--serif);font-size:14px;color:#d5e6ea;line-height:2;
+  overflow-x:auto;
+}
+.eq i{color:var(--accent-2);font-style:italic}
+.eq sub{font-size:10px;color:var(--muted)}
+.m-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 26px;margin-top:4px}
+.m-item{padding:9px 0;border-top:1px solid rgba(132,178,194,.09)}
+.m-item dt{font-size:12px;color:var(--text);margin-bottom:3px}
+.m-item dt span{font-family:var(--mono);font-size:9px;color:var(--dim);margin-left:6px}
+.m-item dd{margin:0;font-size:11.5px;line-height:1.75;color:var(--muted)}
+.diagram{display:flex;gap:20px;align-items:center;margin:6px 0 4px;flex-wrap:wrap}
+.diagram svg{width:250px;height:150px;border:1px solid var(--line);background:rgba(4,9,12,.5);flex:0 0 auto}
+.diagram .cap{font-family:var(--mono);font-size:9px;line-height:1.9;letter-spacing:.04em;color:var(--dim);max-width:260px}
+.refs{list-style:none;margin:0;padding:0}
+.refs li{padding:7px 0;border-top:1px solid rgba(132,178,194,.08);font-size:12px;color:var(--muted);line-height:1.6}
+.refs a{color:#a7dcd7;text-decoration:none;border-bottom:1px solid rgba(167,220,215,.3)}
+.refs a:hover{color:var(--accent-2)}
+.disclaimer{font-family:var(--mono);font-size:9.5px;line-height:1.8;color:var(--dim);padding-top:12px;border-top:1px solid var(--line)}
+
+/* ===== 提示 ===== */
+.toast{
+  position:fixed;left:50%;bottom:34px;transform:translate(-50%,8px);z-index:80;
+  padding:8px 14px;border:1px solid rgba(70,216,199,.35);background:rgba(6,13,17,.94);
+  color:var(--accent-2);font-family:var(--mono);font-size:10px;letter-spacing:.06em;
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ===== 窄屏 ===== */
+@media (max-width:1180px){
+  .workspace{grid-template-columns:minmax(0,1fr);padding:12px 14px 14px}
+  .console{
+    position:fixed;top:68px;right:0;bottom:0;width:min(88vw,342px);z-index:45;
+    transform:translateX(104%);transition:transform .24s cubic-bezier(.22,1,.36,1);
+    box-shadow:-24px 0 60px rgba(0,0,0,.55);
+  }
+  .console.is-open{transform:translateX(0)}
+  .console-close{display:flex}
+  #btnConsole{display:inline-flex}
+  .telemetry .tele:nth-child(5){display:none}
+  .stage-col{min-height:0}
+}
+@media (max-width:760px){
+  .topbar{height:auto;flex:0 0 auto;flex-wrap:wrap;gap:6px;padding:8px 12px 0}
+  .brand-mark{width:28px;height:28px;flex-basis:28px}
+  .brand-text h1{font-size:19px}
+  .brand-text p{display:none}
+  .brand{flex:1 1 auto}
+  .header-actions{order:2;margin-left:auto}
+  .telemetry{order:9;flex:1 1 100%;height:34px;margin:2px -12px 0;padding:0 12px;border-left:0;border-right:0;border-bottom:0;background:rgba(5,10,13,.35)}
+  .tele{min-width:0;padding:4px 8px}
+  .tele .k{font-size:7.5px}
+  .tele .v{font-size:11.5px}
+  .telemetry .tele:nth-child(4){display:none}
+  .header-actions .hbtn span{display:none}
+  .hbtn{padding:0 9px}
+  .workspace{padding:8px 10px 10px;gap:0}
+  .stage{min-height:0}
+  .stage-bar .item.res{display:none}
+  .dock{flex:0 0 auto;flex-wrap:wrap;padding:7px 6px;gap:6px}
+  .tool{min-width:48px;height:42px;padding:3px 5px}
+  .tool span{font-size:9.5px}
+  .tool kbd{display:none}
+  .brush-read{display:none}
+  .dock-hint{display:none}
+  .dock-spacer{display:none}
+  .dock-actions{margin-left:auto}
+  .icon-btn{width:36px;height:36px}
+  .stage-note{font-size:8.5px;white-space:normal;text-align:center;width:76%}
+  .modal{padding:10px}
+  .modal-panel{padding:20px 16px 24px;max-height:92vh}
+  .modal h2{font-size:22px}
+  .m-grid{grid-template-columns:1fr}
+  .diagram svg{width:100%;height:auto}
+}
+@media (max-width:420px){
+  .telemetry .tele:nth-child(2){display:none}
+  .brand-text h1{font-size:17px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;transition-duration:.001ms !important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 34 34" aria-hidden="true">
+        <circle cx="17" cy="17" r="14.2" fill="none" stroke="currentColor" stroke-width="1" opacity=".35"/>
+        <circle cx="17" cy="17" r="10.2" fill="none" stroke="currentColor" stroke-width="1" opacity=".5"/>
+        <circle cx="11.6" cy="13.4" r="2.6" fill="currentColor" opacity=".9"/>
+        <circle cx="21.2" cy="12.6" r="1.5" fill="currentColor" opacity=".55"/>
+        <circle cx="18.3" cy="21.6" r="3" fill="currentColor" opacity=".7"/>
+        <path d="M7.5 24.5c4-2.8 8.6-1.8 12.4-4.2" fill="none" stroke="currentColor" stroke-width="1" opacity=".6"/>
+      </svg>
+      <div class="brand-text">
+        <h1>粒子流体实验室</h1>
+        <p>Position-Based Fluids / 2D Interactive Tank</p>
+      </div>
+    </div>
+    <div class="telemetry" aria-label="实时状态">
+      <div class="tele accent"><span class="k">FPS</span><span class="v" id="vFps">--</span></div>
+      <div class="tele"><span class="k">PARTICLES</span><span class="v" id="vCount">--</span></div>
+      <div class="tele"><span class="k">MEAN SPEED</span><span class="v" id="vSpeed">--<small>px/s</small></span></div>
+      <div class="tele"><span class="k">DENSITY ERR</span><span class="v" id="vErr">--<small>%</small></span></div>
+      <div class="tele"><span class="k">REL. RE</span><span class="v" id="vRe">--</span></div>
+    </div>
+    <div class="header-actions">
+      <button class="hbtn" id="btnHelp" title="模型与参数说明">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v6"/><circle cx="12" cy="7.6" r=".8" fill="currentColor" stroke="none"/></svg>
+        <span>模型说明</span>
+      </button>
+      <button class="hbtn" id="btnConsole" title="打开参数面板">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="8" cy="7" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="10" cy="17" r="1.6" fill="currentColor" stroke="none"/></svg>
+        <span>参数</span>
+      </button>
+      <button class="hbtn primary" id="btnPauseTop" title="暂停 / 继续">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" id="pauseIconTop"><path d="M9 6v12M15 6v12"/></svg>
+        <span id="pauseLabelTop">暂停</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <section class="stage-col">
+      <div class="stage">
+        <div class="stage-bar">
+          <div class="left">
+            <span class="run-dot" id="runDot"></span>
+            <span class="item run-label" id="runLabel">RUNNING</span>
+            <span class="sep"></span>
+            <span class="item" id="simMeta">SIM 2400 P · H 25.0</span>
+            <span class="sep res"></span>
+            <span class="item res" id="simRes">TANK 960 × 620</span>
+          </div>
+          <div class="right">
+            <span class="item view-label" id="viewLabel">SURFACE</span>
+            <span class="sep"></span>
+            <span class="item" id="solverLabel">PBF · 2 SUB · 3 ITER</span>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="stage">
+          <canvas id="glCanvas" aria-label="二维粒子流体模拟画布"></canvas>
+          <canvas id="fxCanvas" aria-hidden="true"></canvas>
+          <div class="corner c-tl"></div><div class="corner c-tr"></div>
+          <div class="corner c-bl"></div><div class="corner c-br"></div>
+          <div class="stage-note" id="stageNote">拖拽水体 · 滚轮调笔刷 · 双击产生冲击</div>
+        </div>
+      </div>
+      <div class="dock">
+        <div class="tool-group" role="group" aria-label="交互工具">
+          <button class="tool is-active" data-tool="stir" aria-pressed="true" title="拖拽搅动水体 (1)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 5.5v4.2h-4.2"/><path d="M8 12c2-3 4 3 6 0" opacity=".7"/></svg>
+            <span>搅拌</span><kbd>1</kbd>
+          </button>
+          <button class="tool" data-tool="attract" aria-pressed="false" title="吸引粒子 (2)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="2.2"/><path d="M5 8l2.2 2.2M5 16l2.2-2.2M19 8l-2.2 2.2M19 16l-2.2-2.2"/><path d="M5 5v3.5h3.5M19 5v3.5h-3.5M5 19v-3.5h3.5M19 19v-3.5h-3.5"/></svg>
+            <span>吸引</span><kbd>2</kbd>
+          </button>
+          <button class="tool" data-tool="repel" aria-pressed="false" title="排斥粒子 (3)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="2.2"/><path d="M12 12L6 6M12 12l6-6M12 12l-6 6M12 12l6 6"/><path d="M6 9V6h3M18 9V6h-3M6 15v3h3M18 15v3h-3"/></svg>
+            <span>排斥</span><kbd>3</kbd>
+          </button>
+          <button class="tool" data-tool="inject" aria-pressed="false" title="注入液体 (4)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 3.5c3 4 5 6.2 5 9a5 5 0 0 1-10 0c0-2.8 2-5 5-9z"/><path d="M12 9.5v6M9 12.5h6" opacity=".8"/></svg>
+            <span>注入</span><kbd>4</kbd>
+          </button>
+          <button class="tool" data-tool="wall" aria-pressed="false" title="绘制障碍，Shift 擦除 (5)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14"/><path d="M3.5 10h17M3.5 15h17M9 5v5M15 10v5M9 15v4" opacity=".65"/></svg>
+            <span>障碍</span><kbd>5</kbd>
+          </button>
+        </div>
+        <div class="dock-spacer"></div>
+        <div class="brush-read">笔刷<b id="brushRead">110</b><small>PX</small></div>
+        <div class="dock-actions">
+          <button class="icon-btn" id="btnPause" title="暂停 / 继续 (Space)" aria-label="暂停">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" id="pauseIcon"><path d="M9 6v12M15 6v12"/></svg>
+          </button>
+          <button class="icon-btn" id="btnStep" title="单步推进 (.)" aria-label="单步">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 5.5l10 6.5-10 6.5z"/><path d="M19 5v14"/></svg>
+          </button>
+          <button class="icon-btn" id="btnReset" title="重置流体 (R)" aria-label="重置">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.8v4.4h4.4"/></svg>
+          </button>
+          <button class="icon-btn" id="btnShot" title="保存 PNG" aria-label="保存截图">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3.5" y="6.5" width="17" height="12"/><circle cx="12" cy="12.5" r="3.2"/><path d="M8 6.5l1.4-2h5.2L16 6.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="dock-hint">
+        <span>拖拽搅动</span><span>右键 / Shift 擦除障碍</span><span>空格暂停</span><span>滚轮调整笔刷</span><span>双击冲击</span>
+      </div>
+    </section>
+
+    <aside class="console" id="console" aria-label="参数控制台">
+      <div class="console-head">
+        <span class="t">CONTROL DECK / 控制台</span>
+        <button class="console-close" id="btnConsoleClose" aria-label="关闭参数面板">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <section class="sec">
+        <div class="sec-head">
+          <div class="sec-title">材料预设</div>
+          <div class="sec-note">MATERIAL</div>
+        </div>
+        <div class="preset-list" id="presetList">
+          <button class="preset is-active" data-preset="water">
+            <span class="swatch" style="--s1:#0b5564;--s2:#a6f5ea"></span>
+            <span><span class="p-name">清水</span><span class="p-sub">低粘 · 快流 · 易飞溅</span></span>
+            <span class="p-tag">ν 0.28</span>
+          </button>
+          <button class="preset" data-preset="honey">
+            <span class="swatch" style="--s1:#6b3a08;--s2:#f5cf7a"></span>
+            <span><span class="p-name">蜂蜜</span><span class="p-sub">高粘 · 慢流 · 壁面黏附</span></span>
+            <span class="p-tag">ν 0.82</span>
+          </button>
+          <button class="preset" data-preset="oil">
+            <span class="swatch" style="--s1:#3e4f16;--s2:#d4e889"></span>
+            <span><span class="p-name">轻油</span><span class="p-sub">中粘 · 高表面张力</span></span>
+            <span class="p-tag">ν 0.55</span>
+          </button>
+          <button class="preset" data-preset="mercury">
+            <span class="swatch" style="--s1:#4b5a66;--s2:#f1f7fa"></span>
+            <span><span class="p-name">水银</span><span class="p-sub">极低粘 · 强内聚 · 高密度</span></span>
+            <span class="p-tag">ν 0.08</span>
+          </button>
+          <button class="preset" data-preset="dual">
+            <span class="swatch" style="--s1:#0b5564;--s2:#f0b45c"></span>
+            <span><span class="p-name">双流体</span><span class="p-sub">两种粘度 · 观察掺混界面</span></span>
+            <span class="p-tag">Δν 0.75</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-head">
+          <div class="sec-title">物理参数</div>
+          <div class="sec-note">PER-PARTICLE</div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-top"><label for="sVisc">动力粘度 <i>ν</i></label><output id="oVisc">0.28</output></div>
+          <input type="range" id="sVisc" min="0" max="1" step="0.01" value="0.28">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-top"><label for="sHetero">粘性差异 <i>Δ</i></label><output id="oHetero">0.12</output></div>
+          <input type="range" id="sHetero" min="0" max="1" step="0.01" value="0.12">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-top"><label for="sFriction">壁面摩擦 <i>μw</i></label><output id="oFriction">0.18</output></div>
+          <input type="range" id="sFriction" min="0" max="1" step="0.01" value="0.18">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-top"><label for="sSigma">表面张力 <i>σ</i></label><output id="oSigma">0.18</output></div>
+          <input type="range" id="sSigma" min="0" max="1" step="0.01" value="0.18">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-top"><label for="sGravity">重力 <i>g</i></label><output id="oGravity">900<small>px/s²</small></output></div>
+          <input type="range" id="sGravity" min="0" max="1500" step="10" value="900">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-top"><label for="sVort">涡量增强 <i>ε</i></label><output id="oVort">0.12</output></div>
+          <input type="range" id="sVort" min="0" max="1" step="0.01" value="0.12">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-top"><label for="sTime">时间倍率</label><output id="oTime">1.00<small>×</small></output></div>
+          <input type="range" id="sTime" min="0.25" max="2" step="0.05" value="1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-top"><label for="sIter">约束迭代</label><output id="oIter">3<small>次</small></output></div>
+          <input type="range" id="sIter" min="1" max="6" step="1" value="3">
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-head">
+          <div class="sec-title">环境激励</div>
+          <div class="sec-note">EXCITATION</div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-top"><label for="sWind">表面风</label><output id="oWind">0</output></div>
+          <input type="range" id="sWind" min="0" max="140" step="2" value="0">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-top"><label for="sShaker">振动台</label><output id="oShaker">0.00</output></div>
+          <input type="range" id="sShaker" min="0" max="1" step="0.05" value="0">
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-head">
+          <div class="sec-title">粒子与视图</div>
+          <div class="sec-note">DISPLAY</div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-top"><label for="sCount">粒子数量</label><output id="oCount">2400<small>P</small></output></div>
+          <input type="range" id="sCount" min="600" max="4200" step="100" value="2400">
+        </div>
+        <div class="seg" id="viewSeg" role="group" aria-label="渲染视图">
+          <button data-view="surface" title="液体表面">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 15c3-4 5-4 8 0s5 4 8 0 5-4 8 0"/><path d="M3 9c3-4 5-4 8 0s5 4 8 0 5-4 8 0" opacity=".5"/></svg><span>液体</span>
+          </button>
+          <button class="is-active" data-view="particles" title="粒子点阵">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="7" cy="8" r="1.6"/><circle cx="12" cy="6.5" r="1.2"/><circle cx="17" cy="9" r="1.8"/><circle cx="9" cy="14" r="1.4"/><circle cx="14.5" cy="13.5" r="2"/><circle cx="18" cy="16.5" r="1.2"/><circle cx="6.5" cy="18" r="1.5"/></svg><span>粒子</span>
+          </button>
+          <button data-view="speed" title="速度着色">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 16h8M6 12h9M9 8h10"/><path d="M18 5l3 3-3 3" opacity=".6"/></svg><span>速度</span>
+          </button>
+          <button data-view="pressure" title="压力 / 密度误差">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 6v6l4 2" opacity=".7"/></svg><span>压力</span>
+          </button>
+          <button data-view="viscosity" title="逐粒子粘度">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M12 3.5c3 4 5 6.2 5 9a5 5 0 0 1-10 0c0-2.8 2-5 5-9z"/><path d="M9 13.5c1.5 2 4.5 2 6 0" opacity=".7"/></svg><span>粘性</span>
+          </button>
+          <button data-view="friction" title="逐粒子壁面摩擦">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 9h11M4 15h11" opacity=".55"/><path d="M15 6l4 3-4 3M19 12l-4 3 4 3"/></svg><span>摩擦</span>
+          </button>
+        </div>
+        <div class="leg" id="viewLeg" aria-hidden="true">
+          <span id="legLo">0</span>
+          <div class="leg-bar" id="legBar"></div>
+          <span id="legHi">1</span>
+        </div>
+        <div class="toggle-row">
+          <span class="lbl">速度矢量场</span>
+          <label class="toggle"><input type="checkbox" id="tgVectors"><span class="track"><span class="knob"></span></span></label>
+        </div>
+        <div class="toggle-row">
+          <span class="lbl">双流体混合</span>
+          <label class="toggle"><input type="checkbox" id="tgDual"><span class="track"><span class="knob"></span></span></label>
+        </div>
+        <div class="toggle-row">
+          <span class="lbl">自动滴落</span>
+          <label class="toggle"><input type="checkbox" id="tgDrip" checked><span class="track"><span class="knob"></span></span></label>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-head">
+          <div class="sec-title">场景操作</div>
+          <div class="sec-note">SCENE</div>
+        </div>
+        <div class="act-grid">
+          <button class="act" id="btnShake">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12c3-1 4 2 6 1s3-3 6-2 4 2 6 1"/><path d="M3 7c3-1 4 2 6 1s3-3 6-2 4 2 6 1" opacity=".5"/><path d="M3 17c3-1 4 2 6 1s3-3 6-2 4 2 6 1" opacity=".5"/></svg>
+            摇晃
+          </button>
+          <button class="act" id="btnPour">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 5h8l-1 5H7z"/><path d="M9 10v9"/><path d="M15 14c1.6 2 2.6 3.2 2.6 4.4a2.6 2.6 0 0 1-5.2 0c0-1.2 1-2.4 2.6-4.4z" opacity=".8"/></svg>
+            注水
+          </button>
+          <button class="act" id="btnClearWalls">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="6" width="16" height="12" opacity=".5"/><path d="M8 6l8 12M16 6L8 18"/></svg>
+            清空障碍
+          </button>
+          <button class="act" id="btnResetFluid">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.8v4.4h4.4"/></svg>
+            重置流体
+          </button>
+        </div>
+      </section>
+
+      <div class="console-foot">
+        <span class="ver">PBF / 2D / WEBGL2</span>
+        <button class="link-btn" id="btnHelp2">模型说明 →</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="modal" id="helpModal" aria-hidden="true">
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <button class="modal-close" id="btnHelpClose" aria-label="关闭">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <h2 id="helpTitle">模型说明</h2>
+    <div class="lede">POSITION-BASED FLUIDS · PER-PARTICLE VISCOSITY &amp; WALL FRICTION</div>
+
+    <section class="m-sec">
+      <h3>01 / 这不是网格法</h3>
+      <p>页面里的水由数千个离散粒子组成，没有固定网格，也没有求解 Navier–Stokes 方程的欧拉网格。每个粒子携带位置、速度、<strong>动力粘度 ν</strong>、<strong>壁面摩擦 μw</strong> 和流体组别；邻居关系每步用空间哈希重建。相比网格法，它更容易处理自由表面、飞溅、合并与掺混。</p>
+      <div class="diagram">
+        <svg viewBox="0 0 250 150" role="img" aria-label="粒子核支持域示意图">
+          <rect x="0" y="0" width="250" height="150" fill="none"/>
+          <circle cx="96" cy="76" r="53" fill="none" stroke="#46d8c7" stroke-width="1" opacity=".45" stroke-dasharray="3 4"/>
+          <circle cx="96" cy="76" r="4" fill="#a6f5ea"/>
+          <g fill="#2c8f93" opacity=".9">
+            <circle cx="70" cy="55" r="3"/><circle cx="120" cy="52" r="3"/><circle cx="130" cy="88" r="3"/><circle cx="100" cy="112" r="3"/><circle cx="64" cy="96" r="3"/><circle cx="56" cy="73" r="3"/><circle cx="112" cy="72" r="3"/><circle cx="90" cy="94" r="3"/>
+          </g>
+          <g stroke="#e2a45f" stroke-width="1" opacity=".7">
+            <path d="M96 76L70 55M96 76l24-24M96 76l34 12M96 76l4 36M96 76l-32 20"/>
+          </g>
+          <text x="154" y="70" fill="#7e949e" font-size="8" font-family="monospace">h = 2.6 s</text>
+          <text x="154" y="82" fill="#7e949e" font-size="8" font-family="monospace">N ≈ 20</text>
+          <text x="154" y="100" fill="#7e949e" font-size="8" font-family="monospace">∇W → 压力</text>
+        </svg>
+        <div class="cap">核半径 h 内的邻居参与密度与压力计算；橙色箭头是核梯度，指向邻居。自由表面处的邻居数量不足，因此密度约束只抵抗压缩，不把表面粒子向内吸。</div>
+      </div>
+    </section>
+
+    <section class="m-sec">
+      <h3>02 / 控制方程</h3>
+      <p>密度取 Poly6 核，压力求解用 Spiky 核梯度；每个子步先积分速度与预测位置，再迭代修正密度约束：</p>
+      <div class="eq">
+        <i>ρ</i><sub>i</sub> = Σ<sub>j</sub> <i>m</i><sub>j</sub> <i>W</i><sub>poly6</sub>(|<i>p</i><sub>i</sub> − <i>p</i><sub>j</sub>|, <i>h</i>)<br>
+        <i>C</i><sub>i</sub> = max(0, <i>ρ</i><sub>i</sub>/<i>ρ</i><sub>0</sub> − 1)<br>
+        <i>λ</i><sub>i</sub> = −<i>C</i><sub>i</sub> / (Σ<sub>j</sub> |∇<sub>p<sub>i</sub></sub><i>C</i><sub>i</sub>|<sup>2</sup> + <i>ε</i>)<br>
+        Δ<i>p</i><sub>i</sub> = (1/<i>ρ</i><sub>0</sub>) Σ<sub>j</sub> (<i>λ</i><sub>i</sub> + <i>λ</i><sub>j</sub>) <i>m</i><sub>j</sub> ∇<i>W</i><sub>spiky</sub>
+      </div>
+      <p>速度修正后做 XSPH 粘性平滑：每个粒子以自身 ν<sub>i</sub> 与邻居 ν<sub>j</sub> 的均值向局部平均速度松弛，强粘流体因此呈现蜂蜜式的整体蠕动。随后计算涡量约束、壁面摩擦与障碍碰撞。</p>
+    </section>
+
+    <section class="m-sec">
+      <h3>03 / 参数怎么读</h3>
+      <div class="m-grid">
+        <dl class="m-item"><dt>动力粘度 ν <span>0 – 1</span></dt><dd>逐粒子的 XSPH 松弛强度。越大越像蜂蜜，动量扩散快，飞溅少；双流体模式下两组粒子的 ν 不同，掺混界面会出现速度差与卷曲。</dd></dl>
+        <dl class="m-item"><dt>粘性差异 Δ <span>0 – 1</span></dt><dd>逐粒子 ν 的离散度。0 是均质流体；1 时粒子间粘度差异最大，可观察剪切带与斑驳纹理。</dd></dl>
+        <dl class="m-item"><dt>壁面摩擦 μw <span>0 – 1</span></dt><dd>粒子接触容器壁与障碍物后，切向速度的衰减率。清水低摩擦会沿壁面滑移，蜂蜜高摩擦会黏附、堆积。</dd></dl>
+        <dl class="m-item"><dt>表面张力 σ <span>0 – 1</span></dt><dd>邻居间内聚力强度。数值越高，液滴越倾向于收缩成球、合并成团；水银预设用高 σ 展示强内聚。</dd></dl>
+        <dl class="m-item"><dt>重力 g <span>0 – 1500 px/s²</span></dt><dd>竖直向下加速度。调到 0 可观察无重力下的惯性流动与缓慢摊平。</dd></dl>
+        <dl class="m-item"><dt>涡量增强 ε <span>0 – 1</span></dt><dd>从速度场旋度中提取涡旋并重新注入能量，让搅拌后的涡街更持久，代价是更高频的速度脉动。</dd></dl>
+        <dl class="m-item"><dt>时间倍率 <span>0.25 – 2×</span></dt><dd>只改变仿真推进速度，不改变参数。慢速适合观察射流卷吸，快速适合让流体尽快静置。</dd></dl>
+        <dl class="m-item"><dt>约束迭代 <span>1 – 6</span></dt><dd>每个子步的密度投影次数。越多越不可压、越稳定，但 CPU 开销成比例增加。</dd></dl>
+      </div>
+    </section>
+
+    <section class="m-sec">
+      <h3>04 / 数值与边界</h3>
+      <p>采用二维、固定时间步的双子步积分；邻居搜索用均匀网格，核半径 h ≈ 2.6 倍初始粒子间距。密度约束迭代 3 次，粒子速度上限用于防止穿透；容器壁和手绘障碍都按圆/线段碰撞处理。渲染部分不是简单画圆：先把粒子质量以高斯核叠加到离屏浮点纹理，得到连续密度场，再用密度梯度求法线、做双光源高光与菲涅尔边缘，所以液面会随流动产生高光与厚度变化。</p>
+      <p>双流体模式用两张密度通道分别累加两组粒子的质量，液面颜色按局部比例混合——掺混处不是贴图，而是两组粒子真实的密度占比。</p>
+    </section>
+
+    <section class="m-sec">
+      <h3>05 / 参考与边界</h3>
+      <ul class="refs">
+        <li>Macklin, M. &amp; Müller, M. (2013). <em>Position Based Fluids</em>. ACM TOG 32(4). <a href="https://matthias-research.github.io/pages/publications/pbf_sig_preprint.pdf" target="_blank" rel="noopener">论文 PDF</a></li>
+        <li>Müller, M., Charypar, D. &amp; Gross, M. (2003). <em>Particle-Based Fluid Simulation for Interactive Applications</em>. SCA 2003. <a href="https://matthias-research.github.io/pages/publications/sca03.pdf" target="_blank" rel="noopener">论文 PDF</a></li>
+        <li>Monaghan, J. J. (2005). <em>Smoothed particle hydrodynamics</em>. Reports on Progress in Physics 68(8). <a href="https://iopscience.iop.org/article/10.1088/0034-4885/68/8/R01" target="_blank" rel="noopener">期刊页</a></li>
+        <li>开源实现检索：<a href="https://github.com/search?q=position+based+fluids&type=repositories" target="_blank" rel="noopener">GitHub · position based fluids</a></li>
+      </ul>
+      <p class="disclaimer">边界说明：本页是交互式二维演示，不是工程 CFD 求解器。参数经过归一化，单位标注（px、px/s²）只用于本场景内部一致；相对雷诺数是由平均速度、容器尺度与粘度系数拼出的启发式指标，不能用于定量设计或实验结论。浏览器需要 WebGL2 与浮点渲染支持；不支持时会退化为 Canvas 2D 粒子视图。</p>
+    </section>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   粒子流体实验室
+   二维 PBF + XSPH + 涡量约束 + 逐粒子粘度/壁面摩擦
+   渲染：WebGL2 密度场表面 / 粒子视图
+   ============================================================ */
+(() => {
+'use strict';
+
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const TAU = Math.PI * 2;
+
+/* ---------------- 材料预设 ---------------- */
+const PRESETS = {
+  water: {
+    label: '清水', tag: 'ν 0.28', accent: '#46d8c7',
+    visc: 0.28, hetero: 0.12, friction: 0.18, sigma: 0.18, gravity: 900, vort: 0.12, twoFluid: false,
+    palA: { deep: [0.014, 0.105, 0.145], mid: [0.055, 0.42, 0.48], light: [0.48, 0.92, 0.86], rim: [0.70, 0.99, 0.95] },
+    palB: { deep: [0.16, 0.075, 0.015], mid: [0.56, 0.31, 0.07], light: [0.95, 0.74, 0.34], rim: [1.0, 0.88, 0.62] }
+  },
+  honey: {
+    label: '蜂蜜', tag: 'ν 0.82', accent: '#e2b06a',
+    visc: 0.82, hetero: 0.10, friction: 0.55, sigma: 0.08, gravity: 560, vort: 0.05, twoFluid: false,
+    palA: { deep: [0.20, 0.095, 0.012], mid: [0.60, 0.36, 0.075], light: [0.98, 0.78, 0.38], rim: [1.0, 0.93, 0.70] },
+    palB: { deep: [0.16, 0.075, 0.015], mid: [0.56, 0.31, 0.07], light: [0.95, 0.74, 0.34], rim: [1.0, 0.88, 0.62] }
+  },
+  oil: {
+    label: '轻油', tag: 'ν 0.55', accent: '#c3d477',
+    visc: 0.55, hetero: 0.18, friction: 0.22, sigma: 0.38, gravity: 780, vort: 0.08, twoFluid: false,
+    palA: { deep: [0.085, 0.105, 0.018], mid: [0.31, 0.41, 0.105], light: [0.76, 0.88, 0.42], rim: [0.90, 0.99, 0.66] },
+    palB: { deep: [0.16, 0.075, 0.015], mid: [0.56, 0.31, 0.07], light: [0.95, 0.74, 0.34], rim: [1.0, 0.88, 0.62] }
+  },
+  mercury: {
+    label: '水银', tag: 'ν 0.08', accent: '#c9dee8',
+    visc: 0.08, hetero: 0.06, friction: 0.06, sigma: 0.85, gravity: 1250, vort: 0.28, twoFluid: false,
+    palA: { deep: [0.055, 0.075, 0.095], mid: [0.32, 0.40, 0.47], light: [0.82, 0.90, 0.96], rim: [0.92, 1.0, 1.0] },
+    palB: { deep: [0.16, 0.075, 0.015], mid: [0.56, 0.31, 0.07], light: [0.95, 0.74, 0.34], rim: [1.0, 0.88, 0.62] }
+  },
+  dual: {
+    label: '双流体', tag: 'Δν 0.75', accent: '#f0b45c',
+    visc: 0.46, hetero: 0.78, friction: 0.30, sigma: 0.20, gravity: 900, vort: 0.20, twoFluid: true,
+    palA: { deep: [0.014, 0.105, 0.145], mid: [0.055, 0.42, 0.48], light: [0.48, 0.92, 0.86], rim: [0.70, 0.99, 0.95] },
+    palB: { deep: [0.18, 0.082, 0.012], mid: [0.66, 0.37, 0.06], light: [1.0, 0.70, 0.26], rim: [1.0, 0.84, 0.52] }
+  }
+};
+
+const state = {
+  preset: 'water',
+  view: 'particles',
+  tool: 'stir',
+  paused: false,
+  autoDrip: true,
+  twoFluid: false,
+  showVectors: false,
+  params: {
+    viscosity: 0.28,
+    hetero: 0.12,
+    friction: 0.18,
+    sigma: 0.14,
+    gravity: 900,
+    vorticity: 0.06,
+    wind: 0,
+    shaker: 0,
+    timeScale: 1,
+    iterations: 3,
+    count: 2400,
+    brush: 110
+  },
+  palette: PRESETS.water.palA,
+  paletteB: PRESETS.water.palB,
+  pointer: {
+    x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, down: false, inside: false,
+    tool: 'stir', radius: 110, erase: false
+  }
+};
+
+/* ---------------- 仿真核 ---------------- */
+const CAP = 6200;
+const MAXN = 72;
+
+const sim = (() => {
+  const px = new Float32Array(CAP), py = new Float32Array(CAP);
+  const vx = new Float32Array(CAP), vy = new Float32Array(CAP);
+  const predX = new Float32Array(CAP), predY = new Float32Array(CAP);
+  const dpx = new Float32Array(CAP), dpy = new Float32Array(CAP);
+  const rho = new Float32Array(CAP), press = new Float32Array(CAP);
+  const lam = new Float32Array(CAP), gs2 = new Float32Array(CAP);
+  const visc = new Float32Array(CAP), fric = new Float32Array(CAP);
+  const group = new Uint8Array(CAP);
+  const noise1 = new Float32Array(CAP), noise2 = new Float32Array(CAP);
+  const curl = new Float32Array(CAP);
+  const nbrCount = new Int32Array(CAP);
+  const nbrs = new Int32Array(CAP * MAXN);
+
+  let n = 0;
+  let mass = 1, h = 1, h2 = 1, rho0 = 1, spacing = 1;
+  let poly6 = 1, spikyC = 1;
+  let gw = 1, gh = 1, cell = 1;
+  let counts = new Int32Array(1), starts = new Int32Array(1), order = new Int32Array(1), cursor = new Int32Array(1);
+  let bounds = { x0: 14, y0: 14, x1: 900, y1: 600 };
+  const obstacles = [];
+
+  const matFor = (i) => {
+    const p = state.params;
+    let base = p.viscosity;
+    if (state.twoFluid) {
+      base *= group[i] === 1 ? (1 - 0.58 * p.hetero) : (1 + 0.58 * p.hetero);
+    } else {
+      base *= 1 + (noise1[i] * 2 - 1) * 0.85 * p.hetero;
+    }
+    visc[i] = clamp(base, 0.02, 1);
+    fric[i] = clamp(p.friction * (1 + (noise2[i] * 2 - 1) * 0.62 * p.hetero), 0, 1);
+  };
+
+  function setupGrid() {
+    cell = h;
+    gw = Math.max(1, Math.ceil((bounds.x1 - bounds.x0) / cell) + 2);
+    gh = Math.max(1, Math.ceil((bounds.y1 - bounds.y0) / cell) + 2);
+    const cells = gw * gh;
+    counts = new Int32Array(cells);
+    starts = new Int32Array(cells + 1);
+    cursor = new Int32Array(cells);
+    order = new Int32Array(CAP);
+  }
+
+  function projectOne(i) {
+    if (predX[i] < bounds.x0) predX[i] = bounds.x0;
+    else if (predX[i] > bounds.x1) predX[i] = bounds.x1;
+    if (predY[i] < bounds.y0) predY[i] = bounds.y0;
+    else if (predY[i] > bounds.y1) predY[i] = bounds.y1;
+    if (obstacles.length) {
+      for (let o = 0; o < obstacles.length; o++) {
+        const ob = obstacles[o];
+        const dx = predX[i] - ob.x, dy = predY[i] - ob.y;
+        const rr = ob.r + 1.2;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < rr * rr) {
+          const d = Math.sqrt(d2) || 0.001;
+          const nx = dx / d, ny = dy / d;
+          predX[i] = ob.x + nx * rr;
+          predY[i] = ob.y + ny * rr;
+        }
+      }
+    }
+  }
+
+  function buildGrid() {
+    counts.fill(0);
+    const w = bounds.x1 - bounds.x0, hh = bounds.y1 - bounds.y0;
+    for (let i = 0; i < n; i++) {
+      let cx = Math.floor((predX[i] - bounds.x0) / cell);
+      let cy = Math.floor((predY[i] - bounds.y0) / cell);
+      cx = cx < 0 ? 0 : cx >= gw ? gw - 1 : cx;
+      cy = cy < 0 ? 0 : cy >= gh ? gh - 1 : cy;
+      counts[cy * gw + cx]++;
+    }
+    let acc = 0;
+    for (let c = 0; c < counts.length; c++) { starts[c] = acc; acc += counts[c]; }
+    starts[counts.length] = acc;
+    cursor.fill(0);
+    for (let i = 0; i < n; i++) {
+      let cx = Math.floor((predX[i] - bounds.x0) / cell);
+      let cy = Math.floor((predY[i] - bounds.y0) / cell);
+      cx = cx < 0 ? 0 : cx >= gw ? gw - 1 : cx;
+      cy = cy < 0 ? 0 : cy >= gh ? gh - 1 : cy;
+      const c = cy * gw + cx;
+      order[starts[c] + cursor[c]++] = i;
+    }
+    void w; void hh;
+  }
+
+  function buildNeighbors() {
+    for (let i = 0; i < n; i++) {
+      let cx = Math.floor((predX[i] - bounds.x0) / cell);
+      let cy = Math.floor((predY[i] - bounds.y0) / cell);
+      cx = cx < 0 ? 0 : cx >= gw ? gw - 1 : cx;
+      cy = cy < 0 ? 0 : cy >= gh ? gh - 1 : cy;
+      const xi = predX[i], yi = predY[i];
+      const base = i * MAXN;
+      let k = 0;
+      for (let oy = -1; oy <= 1; oy++) {
+        const yy = cy + oy;
+        if (yy < 0 || yy >= gh) continue;
+        for (let ox = -1; ox <= 1; ox++) {
+          const xx = cx + ox;
+          if (xx < 0 || xx >= gw) continue;
+          const c = yy * gw + xx;
+          const e = starts[c + 1];
+          for (let q = starts[c]; q < e; q++) {
+            const j = order[q];
+            if (j === i) continue;
+            const dx = predX[j] - xi, dy = predY[j] - yi;
+            if (dx * dx + dy * dy < h2) {
+              if (k < MAXN) nbrs[base + k++] = j;
+            }
+          }
+        }
+      }
+      nbrCount[i] = k;
+    }
+  }
+
+  const selfW = () => mass * poly6 * h2 * h2 * h2;
+
+  function densityPass() {
+    const sw = selfW();
+    for (let i = 0; i < n; i++) {
+      const xi = predX[i], yi = predY[i];
+      const base = i * MAXN, k = nbrCount[i];
+      let d = sw, gsum = 0;
+      for (let q = 0; q < k; q++) {
+        const j = nbrs[base + q];
+        const dx = predX[j] - xi, dy = predY[j] - yi;
+        const r2 = dx * dx + dy * dy;
+        if (r2 >= h2 || r2 < 1e-9) continue;
+        const t = h2 - r2;
+        d += mass * poly6 * t * t * t;
+        const r = Math.sqrt(r2);
+        const g = spikyC * (h - r) * (h - r) / r;
+        const gx = g * dx, gy = g * dy;
+        gsum += gx * gx + gy * gy;
+      }
+      rho[i] = d;
+      gs2[i] = gsum * mass * mass / (rho0 * rho0);
+    }
+  }
+
+  function solvePressure() {
+    for (let i = 0; i < n; i++) {
+      const C = rho[i] / rho0 - 1;
+      const cc = C > 0 ? C : 0;
+      press[i] = cc;
+      lam[i] = -cc / (gs2[i] + 1e-5);
+    }
+    dpx.fill(0, 0, n);
+    dpy.fill(0, 0, n);
+    for (let i = 0; i < n; i++) {
+      const xi = predX[i], yi = predY[i];
+      const base = i * MAXN, k = nbrCount[i];
+      const li = lam[i];
+      for (let q = 0; q < k; q++) {
+        const j = nbrs[base + q];
+        if (j <= i) continue;
+        const dx = predX[j] - xi, dy = predY[j] - yi;
+        const r2 = dx * dx + dy * dy;
+        if (r2 >= h2 || r2 < 1e-9) continue;
+        const r = Math.sqrt(r2);
+        const g = spikyC * (h - r) * (h - r) / r;
+        const gx = g * dx * mass / rho0;
+        const gy = g * dy * mass / rho0;
+        const L = li + lam[j];
+        const ax = L * gx, ay = L * gy;
+        dpx[i] += ax; dpy[i] += ay;
+        dpx[j] -= ax; dpy[j] -= ay;
+      }
+    }
+    const maxStep = spacing * 0.42;
+    const maxStep2 = maxStep * maxStep;
+    for (let i = 0; i < n; i++) {
+      let ax = dpx[i], ay = dpy[i];
+      const m2 = ax * ax + ay * ay;
+      if (m2 > maxStep2) {
+        const sc = maxStep / Math.sqrt(m2);
+        ax *= sc; ay *= sc;
+      }
+      predX[i] += ax; predY[i] += ay;
+      projectOne(i);
+    }
+  }
+
+  function wallFriction() {
+    const p = state.params;
+    for (let i = 0; i < n; i++) {
+      let hit = false;
+      const damp = Math.exp(-fric[i] * 0.55);
+      if (px[i] <= bounds.x0 + 0.4) {
+        px[i] = bounds.x0; if (vx[i] < 0) vx[i] = -vx[i] * 0.02; vy[i] *= damp; hit = true;
+      } else if (px[i] >= bounds.x1 - 0.4) {
+        px[i] = bounds.x1; if (vx[i] > 0) vx[i] = -vx[i] * 0.02; vy[i] *= damp; hit = true;
+      }
+      if (py[i] <= bounds.y0 + 0.4) {
+        py[i] = bounds.y0; if (vy[i] < 0) vy[i] = -vy[i] * 0.02; vx[i] *= damp; hit = true;
+      } else if (py[i] >= bounds.y1 - 0.4) {
+        py[i] = bounds.y1; if (vy[i] > 0) vy[i] = -vy[i] * 0.02; vx[i] *= damp; hit = true;
+      }
+      if (obstacles.length) {
+        for (let o = 0; o < obstacles.length; o++) {
+          const ob = obstacles[o];
+          const dx = px[i] - ob.x, dy = py[i] - ob.y;
+          const rr = ob.r + 1.2;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < rr * rr && d2 > 1e-9) {
+            const d = Math.sqrt(d2);
+            const nx = dx / d, ny = dy / d;
+            const vn = vx[i] * nx + vy[i] * ny;
+            const vtx = vx[i] - vn * nx;
+            const vty = vy[i] - vn * ny;
+            const dmp = Math.exp(-fric[i] * 0.55);
+            const nvn = vn < 0 ? -vn * 0.02 : vn;
+            vx[i] = vtx * dmp + nvn * nx;
+            vy[i] = vty * dmp + nvn * ny;
+            hit = true;
+          }
+        }
+      }
+      void hit;
+    }
+    void p;
+  }
+
+  function viscosityPass(sdt) {
+    const K = 60;
+    for (let i = 0; i < n; i++) {
+      const base = i * MAXN, k = nbrCount[i];
+      if (!k) continue;
+      const xi = px[i], yi = py[i];
+      let sw = 0, mvx = 0, mvy = 0, wv = 0;
+      for (let q = 0; q < k; q++) {
+        const j = nbrs[base + q];
+        const dx = px[j] - xi, dy = py[j] - yi;
+        const r2 = dx * dx + dy * dy;
+        if (r2 >= h2) continue;
+        const t = h2 - r2;
+        const w = poly6 * t * t * t;
+        const vp = 0.5 * (visc[i] + visc[j]);
+        const ww = w * (0.06 + vp);
+        sw += ww; mvx += vx[j] * ww; mvy += vy[j] * ww; wv += vp * ww;
+      }
+      if (sw > 1e-9) {
+        const vloc = wv / sw;
+        const rate = 1 - Math.exp(-K * vloc * sdt);
+        vx[i] += (mvx / sw - vx[i]) * rate;
+        vy[i] += (mvy / sw - vy[i]) * rate;
+      }
+    }
+  }
+
+  function vorticityPass(sdt) {
+    const eps = state.params.vorticity;
+    if (eps <= 0.001) return;
+    for (let i = 0; i < n; i++) {
+      const base = i * MAXN, k = nbrCount[i];
+      if (!k) { curl[i] = 0; continue; }
+      const xi = px[i], yi = py[i];
+      let c = 0;
+      for (let q = 0; q < k; q++) {
+        const j = nbrs[base + q];
+        const dx = px[j] - xi, dy = py[j] - yi;
+        const r2 = dx * dx + dy * dy;
+        if (r2 >= h2 || r2 < 1e-9) continue;
+        const r = Math.sqrt(r2);
+        const g = spikyC * (h - r) * (h - r) / r;
+        c += (vx[j] - vx[i]) * g * dy - (vy[j] - vy[i]) * g * dx;
+      }
+      curl[i] = c;
+    }
+    for (let i = 0; i < n; i++) {
+      const base = i * MAXN, k = nbrCount[i];
+      if (!k) continue;
+      const xi = px[i], yi = py[i];
+      let gx = 0, gy = 0;
+      for (let q = 0; q < k; q++) {
+        const j = nbrs[base + q];
+        const dx = px[j] - xi, dy = py[j] - yi;
+        const r2 = dx * dx + dy * dy;
+        if (r2 >= h2 || r2 < 1e-9) continue;
+        const r = Math.sqrt(r2);
+        const g = spikyC * (h - r) * (h - r) / r;
+        const dm = Math.abs(curl[j]) - Math.abs(curl[i]);
+        gx += dm * g * dx; gy += dm * g * dy;
+      }
+      const gl = Math.sqrt(gx * gx + gy * gy) + 1e-9;
+      const nx = gx / gl, ny = gy / gl;
+      vx[i] += ny * curl[i] * eps * 52 * sdt;
+      vy[i] += -nx * curl[i] * eps * 52 * sdt;
+    }
+  }
+
+  function cohesionPass(sdt) {
+    const sigma = state.params.sigma;
+    if (sigma <= 0.001) return;
+    const k = sigma * 600;
+    for (let i = 0; i < n; i++) {
+      const base = i * MAXN, kk = nbrCount[i];
+      if (!kk) continue;
+      const xi = px[i], yi = py[i];
+      let fx = 0, fy = 0;
+      for (let q = 0; q < kk; q++) {
+        const j = nbrs[base + q];
+        const dx = px[j] - xi, dy = py[j] - yi;
+        const r2 = dx * dx + dy * dy;
+        if (r2 >= h2) continue;
+        const t = h2 - r2;
+        const w = poly6 * t * t * t * mass;
+        fx += dx * w; fy += dy * w;
+      }
+      vx[i] += fx * k * sdt;
+      vy[i] += fy * k * sdt;
+    }
+  }
+
+  function pointerPass(sdt) {
+    const p = state.pointer;
+    if (!p.down || p.tool === 'wall' || p.tool === 'inject') return;
+    const R = p.radius, R2 = R * R;
+    const mode = p.tool;
+    for (let i = 0; i < n; i++) {
+      const dx = px[i] - p.x, dy = py[i] - p.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > R2) continue;
+      let fall = 1 - d2 / R2;
+      fall *= fall;
+      if (mode === 'stir') {
+        vx[i] += p.vx * 7.0 * fall * sdt;
+        vy[i] += p.vy * 7.0 * fall * sdt;
+      } else {
+        const d = Math.sqrt(d2) || 0.001;
+        const dir = mode === 'attract' ? -1 : 1;
+        const acc = mode === 'attract' ? 1500 : 1900;
+        vx[i] += (dx / d) * dir * acc * fall * sdt;
+        vy[i] += (dy / d) * dir * acc * fall * sdt;
+      }
+    }
+  }
+
+  function clampSpeed() {
+    const vmax = 920;
+    const vmax2 = vmax * vmax;
+    for (let i = 0; i < n; i++) {
+      const v2 = vx[i] * vx[i] + vy[i] * vy[i];
+      if (v2 > vmax2) {
+        const sc = vmax / Math.sqrt(v2);
+        vx[i] *= sc; vy[i] *= sc;
+      }
+    }
+  }
+
+  let simTime = 0;
+  function step(dt, iterations) {
+    if (n === 0) return;
+    dt = clamp(dt, 1 / 240, 1 / 28);
+    const subs = 3;
+    const sdt = dt / subs;
+    const gravity = state.params.gravity;
+
+    for (let s = 0; s < subs; s++) {
+      simTime += sdt;
+      const shaker = state.params.shaker || 0;
+      if (shaker > 0) {
+        const ax = Math.sin(simTime * 1.55) * 78 * shaker;
+        for (let i = 0; i < n; i++) vx[i] += ax * sdt;
+      }
+      const wind = state.params.wind || 0;
+      if (wind > 0) {
+        for (let i = 0; i < n; i++) {
+          if (rho[i] > rho0 * 1.005) continue;
+          const ph = px[i] * 0.010 + simTime * 1.15;
+          const w = Math.sin(ph) * Math.cos(py[i] * 0.024 - simTime * 0.8);
+          vx[i] += wind * 0.35 * w * sdt;
+          vy[i] += wind * 0.9 * Math.sin(px[i] * 0.013 + simTime * 1.25) * Math.cos(py[i] * 0.020 - simTime * 0.55) * sdt;
+        }
+      }
+      pointerPass(sdt);
+      const drag = Math.exp(-(0.9 + state.params.friction * 1.1) * sdt);
+      for (let i = 0; i < n; i++) {
+        vx[i] = vx[i] * drag + (Math.random() - 0.5) * 0.55;
+        vy[i] += (Math.random() - 0.5) * 0.55;
+        vy[i] += gravity * sdt;
+        predX[i] = px[i] + vx[i] * sdt;
+        predY[i] = py[i] + vy[i] * sdt;
+        projectOne(i);
+      }
+
+      buildGrid();
+      buildNeighbors();
+      cohesionPass(sdt);
+
+      for (let it = 0; it < iterations; it++) {
+        densityPass();
+        solvePressure();
+      }
+
+      for (let i = 0; i < n; i++) {
+        vx[i] = (predX[i] - px[i]) / sdt;
+        vy[i] = (predY[i] - py[i]) / sdt;
+        px[i] = predX[i];
+        py[i] = predY[i];
+      }
+
+      viscosityPass(sdt);
+      vorticityPass(sdt);
+      wallFriction();
+      clampSpeed();
+    }
+  }
+
+  function measure() {
+    let speed = 0, vmax = 0, err = 0, ke = 0;
+    for (let i = 0; i < n; i++) {
+      const v = Math.sqrt(vx[i] * vx[i] + vy[i] * vy[i]);
+      speed += v;
+      if (v > vmax) vmax = v;
+      err += Math.abs(rho[i] / rho0 - 1);
+      ke += 0.5 * mass * (vx[i] * vx[i] + vy[i] * vy[i]);
+    }
+    return {
+      avgSpeed: n ? speed / n : 0,
+      maxSpeed: vmax,
+      err: n ? err / n : 0,
+      ke,
+      n
+    };
+  }
+
+  function rebuild(count) {
+    const margin = stageW < 420 ? 8 : 14;
+    bounds = {
+      x0: margin, y0: margin,
+      x1: Math.max(margin + 40, stageW - margin),
+      y1: Math.max(margin + 40, stageH - margin)
+    };
+    const W = bounds.x1 - bounds.x0, H = bounds.y1 - bounds.y0;
+    const bw = W * 0.90, bh = H * 0.40;
+    let s = Math.sqrt((bw * bh) / Math.max(400, count));
+    const cols = Math.max(2, Math.round(bw / s));
+    const rows = Math.max(2, Math.round(count / cols));
+    s = bw / cols;
+    const actual = Math.min(CAP, cols * rows);
+    const originX = (bounds.x0 + bounds.x1) / 2 - (cols - 1) * s / 2;
+    const originY = bounds.y1 - 0.9 * s - (rows - 1) * s;
+
+    n = actual;
+    spacing = s;
+    mass = s * s;
+    h = s * 2.6;
+    h2 = h * h;
+    poly6 = 4 / (Math.PI * Math.pow(h, 8));
+    spikyC = 30 / (Math.PI * Math.pow(h, 5));
+
+    for (let i = 0; i < n; i++) {
+      const cx = i % cols, cy = Math.floor(i / cols);
+      px[i] = originX + cx * s + (Math.random() - 0.5) * s * 0.10;
+      py[i] = originY + cy * s + (Math.random() - 0.5) * s * 0.10;
+      vx[i] = 0; vy[i] = 0;
+      noise1[i] = Math.random();
+      noise2[i] = Math.random();
+      rho[i] = 0; press[i] = 0;
+      group[i] = 0;
+    }
+
+    const midX = bounds.x0 + W * 0.62;
+    if (state.twoFluid) {
+      for (let i = 0; i < n; i++) group[i] = px[i] > midX ? 1 : 0;
+    }
+    for (let i = 0; i < n; i++) matFor(i);
+
+    // 以最靠近中心的粒子为准标定静止密度（包含自贡献项）
+    const ci = Math.floor(rows / 2) * cols + Math.floor(cols / 2);
+    let d0 = selfW();
+    for (let j = 0; j < n; j++) {
+      if (j === ci) continue;
+      const dx = px[j] - px[ci], dy = py[j] - py[ci];
+      const r2 = dx * dx + dy * dy;
+      if (r2 < h2) { const t = h2 - r2; d0 += mass * poly6 * t * t * t; }
+    }
+    rho0 = Math.max(0.2, d0);
+    for (let i = 0; i < n; i++) rho[i] = rho0;
+
+    setupGrid();
+    for (let i = 0; i < n; i++) { predX[i] = px[i]; predY[i] = py[i]; projectOne(i); px[i] = predX[i]; py[i] = predY[i]; }
+    updateMeta();
+  }
+
+  function resize(w, hgt) {
+    const old = bounds;
+    const nw = Math.max(80, w), nh = Math.max(80, hgt);
+    const newB = {
+      x0: 14, y0: 14,
+      x1: Math.max(54, nw - 14), y1: Math.max(54, nh - 14)
+    };
+    if (nw < 420) { newB.x0 = 8; newB.y0 = 8; newB.x1 = Math.max(48, nw - 8); newB.y1 = Math.max(48, nh - 8); }
+    const sx = (newB.x1 - newB.x0) / Math.max(1, old.x1 - old.x0);
+    const sy = (newB.y1 - newB.y0) / Math.max(1, old.y1 - old.y0);
+    for (let i = 0; i < n; i++) {
+      px[i] = newB.x0 + (px[i] - old.x0) * sx;
+      py[i] = newB.y0 + (py[i] - old.y0) * sy;
+    }
+    for (const ob of obstacles) {
+      ob.x = newB.x0 + (ob.x - old.x0) * sx;
+      ob.y = newB.y0 + (ob.y - old.y0) * sy;
+    }
+    bounds = newB;
+    setupGrid();
+    for (let i = 0; i < n; i++) { projectOne(i); px[i] = predX[i]; py[i] = predY[i]; }
+  }
+
+  function initParticle(i, x, y, ivx = 0, ivy = 0) {
+    px[i] = clamp(x, bounds.x0 + 2, bounds.x1 - 2);
+    py[i] = clamp(y, bounds.y0 + 2, bounds.y1 - 2);
+    vx[i] = ivx; vy[i] = ivy;
+    noise1[i] = Math.random(); noise2[i] = Math.random();
+    const midX = bounds.x0 + (bounds.x1 - bounds.x0) * 0.62;
+    group[i] = state.twoFluid && px[i] > midX ? 1 : 0;
+    matFor(i);
+    rho[i] = rho0; press[i] = 0;
+  }
+
+  function addParticles(count, x, y, spread = 18, ivx = 0, ivy = 0) {
+    const room = CAP - n;
+    const add = Math.min(room, Math.max(0, count));
+    for (let k = 0; k < add; k++) {
+      const a = Math.random() * TAU;
+      const r = Math.sqrt(Math.random()) * spread;
+      initParticle(n, x + Math.cos(a) * r, y + Math.sin(a) * r, ivx, ivy);
+      n++;
+    }
+    return add;
+  }
+
+  function setTwoFluid(on) {
+    state.twoFluid = on;
+    const midX = bounds.x0 + (bounds.x1 - bounds.x0) * 0.62;
+    for (let i = 0; i < n; i++) group[i] = on && px[i] > midX ? 1 : 0;
+    for (let i = 0; i < n; i++) matFor(i);
+  }
+
+  function shake(strength = 1) {
+    const H = bounds.y1 - bounds.y0;
+    for (let i = 0; i < n; i++) {
+      const t = (py[i] - bounds.y0) / H;
+      vx[i] += (Math.sin(t * Math.PI * 1.25) * 95 + (Math.random() - 0.5) * 38) * strength;
+      vy[i] += (Math.random() - 0.5) * 18 * strength;
+    }
+  }
+
+  function burst(x, y, radius = 150, power = 1) {
+    for (let i = 0; i < n; i++) {
+      const dx = px[i] - x, dy = py[i] - y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 0.001;
+      if (d > radius) continue;
+      const fall = (1 - d / radius) ** 2;
+      vx[i] += (dx / d) * 430 * fall * power;
+      vy[i] += (dy / d) * 430 * fall * power;
+    }
+  }
+
+  function clearObstacles() { obstacles.length = 0; }
+
+  function updateMeta() {
+    const meta = $('simMeta');
+    if (meta) meta.textContent = `SIM ${n} P · H ${h.toFixed(1)}`;
+    const res = $('simRes');
+    if (res) res.textContent = `TANK ${Math.round(bounds.x1 - bounds.x0)} × ${Math.round(bounds.y1 - bounds.y0)}`;
+  }
+
+  return {
+    step, measure, rebuild, resize, addParticles, setTwoFluid, shake, burst,
+    clearObstacles, initParticle, updateMeta,
+    applyMaterial: () => { for (let i = 0; i < n; i++) matFor(i); },
+    get n() { return n; },
+    get spacing() { return spacing; },
+    get h() { return h; },
+    get rho0() { return rho0; },
+    get mass() { return mass; },
+    get bounds() { return bounds; },
+    get obstacles() { return obstacles; },
+    get data() { return { px, py, vx, vy, rho, press, visc, fric, group, noise1 }; }
+  };
+})();
+
+/* ---------------- 尺寸 / 画布 ---------------- */
+let stageW = 800, stageH = 600, dpr = 1;
+const stageEl = $('stage');
+let glCanvas = $('glCanvas');
+const fxCanvas = $('fxCanvas');
+const fxCtx = fxCanvas.getContext('2d');
+
+const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const rgba = (c, a = 1) => `rgba(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)},${a})`;
+
+/* ---------------- WebGL2 渲染器 ---------------- */
+function createGLRenderer(canvas) {
+  const gl = canvas.getContext('webgl2', {
+    alpha: false, antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance'
+  });
+  if (!gl) throw new Error('WebGL2 unavailable');
+
+  const extCBF = gl.getExtension('EXT_color_buffer_float');
+  const extFB = gl.getExtension('EXT_float_blend');
+  let useFloat = !!(extCBF && extFB);
+  let densityScale = useFloat ? 1 : 0.22;
+
+  const V_DENSITY = `#version 300 es
+layout(location=0) in vec2 aCorner;
+layout(location=1) in vec2 aPos;
+layout(location=2) in float aGroup;
+uniform vec2 uCss;
+uniform float uRadius;
+out vec2 vLocal;
+out float vGroup;
+void main(){
+  vec2 p = aPos + aCorner * uRadius;
+  vec2 clip = vec2(p.x / uCss.x * 2.0 - 1.0, 1.0 - p.y / uCss.y * 2.0);
+  gl_Position = vec4(clip, 0.0, 1.0);
+  vLocal = aCorner;
+  vGroup = aGroup;
+}`;
+
+  const F_DENSITY = `#version 300 es
+precision highp float;
+in vec2 vLocal;
+in float vGroup;
+uniform float uWeight;
+out vec4 fragColor;
+void main(){
+  float r2 = dot(vLocal, vLocal);
+  if (r2 > 1.0) discard;
+  float w = exp(-2.4 * r2) * (1.0 - r2) * uWeight;
+  fragColor = vec4(w * (1.0 - vGroup), w * vGroup, 0.0, 1.0);
+}`;
+
+  const V_FULL = `#version 300 es
+layout(location=0) in vec2 aPos;
+void main(){ gl_Position = vec4(aPos, 0.0, 1.0); }`;
+
+  const F_COMPOSITE = `#version 300 es
+precision highp float;
+uniform sampler2D uDensity;
+uniform vec2 uRes;
+uniform vec2 uCss;
+uniform float uDpr;
+uniform float uTime;
+uniform float uThreshold;
+uniform vec2 uBMin;
+uniform vec2 uBMax;
+uniform int uMode;
+uniform int uObsCount;
+uniform vec3 uObs[48];
+uniform vec3 uDeepA, uMidA, uLightA, uRimA;
+uniform vec3 uDeepB, uMidB, uLightB, uRimB;
+out vec4 fragColor;
+
+float hash21(vec2 p){
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+float densAt(vec2 uv){
+  vec4 d = texture(uDensity, uv);
+  return d.r + d.g;
+}
+vec3 shadeBg(vec2 pix){
+  vec2 uv = pix / uCss;
+  float vig = smoothstep(1.28, 0.30, length((uv - 0.5) * vec2(1.04, 1.0)));
+  vec3 base = mix(vec3(0.011, 0.017, 0.022), vec3(0.031, 0.045, 0.054), smoothstep(0.0, 1.0, uv.y));
+  vec2 g1 = abs(fract(pix / 28.0) - 0.5);
+  float l1 = 1.0 - smoothstep(0.0, 0.018, min(g1.x, g1.y));
+  vec2 g2 = abs(fract(pix / 140.0) - 0.5);
+  float l2 = 1.0 - smoothstep(0.0, 0.0055, min(g2.x, g2.y));
+  base += vec3(0.055, 0.095, 0.105) * l1 * 0.20;
+  base += vec3(0.10, 0.16, 0.17) * l2 * 0.28;
+  base *= mix(0.54, 1.0, vig);
+  float edge = min(min(pix.x - uBMin.x, uBMax.x - pix.x), min(pix.y - uBMin.y, uBMax.y - pix.y));
+  base *= mix(0.70, 1.0, smoothstep(0.0, 28.0, edge));
+  float frame = 1.0 - smoothstep(0.5, 1.8, abs(edge));
+  base += vec3(0.12, 0.26, 0.29) * frame * 0.45;
+  return base;
+}
+void main(){
+  vec2 frag = gl_FragCoord.xy;
+  vec2 pix = frag / uDpr;
+  pix.y = uCss.y - pix.y;
+  vec2 uv = frag / uRes;
+  vec3 col = shadeBg(pix);
+
+  float obsSd = 1e9;
+  float obsR = 1.0;
+  vec3 obsNear = vec3(0.0);
+  for (int i = 0; i < 48; i++) {
+    if (i >= uObsCount) break;
+    float d = length(pix - uObs[i].xy) - uObs[i].z;
+    if (d < obsSd) { obsSd = d; obsR = uObs[i].z; obsNear = uObs[i]; }
+  }
+  if (obsSd > 0.0 && obsSd < 22.0) col *= mix(0.70, 1.0, smoothstep(0.0, 22.0, obsSd));
+
+  if (uMode == 0) {
+    float rho = densAt(uv);
+    float dR = densAt(uv + vec2(5.0 / uRes.x, 0.0));
+    float dL = densAt(uv - vec2(5.0 / uRes.x, 0.0));
+    float dU = densAt(uv + vec2(0.0, 5.0 / uRes.y));
+    float dD = densAt(uv - vec2(0.0, 5.0 / uRes.y));
+    vec2 grad = vec2(dR - dL, dU - dD) * (0.5 / (uDpr * 3.33));
+    vec2 nxy = vec2(-grad.x, grad.y);
+    float rip = uTime * 0.8;
+    vec2 micro = vec2(sin(pix.y * 0.075 + rip) * 0.55, cos(pix.x * 0.061 - rip * 0.9) * 0.45);
+    vec3 n = normalize(vec3(nxy * 9.0 + micro * 0.55, 1.0));
+    float fill = smoothstep(uThreshold, uThreshold * 2.75, rho);
+    float mask = smoothstep(uThreshold * 0.94, uThreshold * 1.06, rho);
+
+    vec4 d0 = texture(uDensity, uv);
+    float mixB = d0.g / max(d0.r + d0.g, 0.0001);
+    vec3 deep = mix(uDeepA, uDeepB, mixB);
+    vec3 mid = mix(uMidA, uMidB, mixB);
+    vec3 light = mix(uLightA, uLightB, mixB);
+    vec3 rimC = mix(uRimA, uRimB, mixB);
+
+    vec3 base = mix(light, mid, smoothstep(0.0, 0.48, fill));
+    base = mix(base, deep, smoothstep(0.45, 1.0, fill));
+    float depth = clamp((pix.y - uBMin.y) / max(1.0, uBMax.y - uBMin.y), 0.0, 1.0);
+    base *= mix(1.0, 0.74, depth * 0.75);
+
+    vec3 L1 = normalize(vec3(-0.48, -0.76, 0.55));
+    vec3 L2 = normalize(vec3(0.62, 0.18, 0.42));
+    float diff = max(dot(n, L1), 0.0);
+    float diff2 = max(dot(n, L2), 0.0);
+    vec3 H = normalize(L1 + vec3(0.0, 0.0, 1.0));
+    float spec = pow(max(dot(n, H), 0.0), 128.0);
+    float spec2 = pow(max(dot(n, H), 0.0), 8.0);
+    float rim = pow(1.0 - clamp(n.z, 0.0, 1.0), 2.2);
+
+    vec3 lit = base * (0.50 + 0.40 * diff);
+    lit += mid * diff2 * 0.06;
+    lit += light * (spec * 0.70 + spec2 * 0.06);
+    lit += rimC * rim * 0.14;
+    float surfBand = smoothstep(uThreshold * 1.03, uThreshold * 1.10, rho) * (1.0 - smoothstep(uThreshold * 1.16, uThreshold * 1.44, rho));
+    lit += rimC * surfBand * 0.26;
+    float glint = pow(max(0.0, sin(pix.x * 0.021 + uTime * 0.5) * 0.5 + 0.5), 3.0) * surfBand;
+    lit += rimC * glint * 0.48;
+    vec3 refr = shadeBg(pix + vec2(n.x, -n.y) * (24.0 * mask));
+    vec3 bodyTint = mix(deep, mid, 0.34) * 0.72;
+    lit = mix(refr * 0.42 + bodyTint * 0.58, lit, 0.62);
+    float caustic = sin(pix.x * 0.032 + sin(pix.y * 0.021 + uTime * 0.5) * 2.4 + uTime * 0.45)
+                  * sin(pix.y * 0.047 - uTime * 0.31 + sin(pix.x * 0.014) * 1.8);
+    lit += light * pow(smoothstep(0.55, 1.0, caustic), 2.0) * 0.16 * fill;
+    lit += vec3(hash21(frag) - 0.5) / 255.0;
+    col = mix(col, lit, mask * 0.95);
+  }
+
+  if (obsSd < 0.0) {
+    float u = clamp(-obsSd / max(1.0, obsR), 0.0, 1.0);
+    vec3 steel = mix(vec3(0.052, 0.068, 0.080), vec3(0.17, 0.195, 0.215), 1.0 - u);
+    float ang = atan(pix.y - obsNear.y, pix.x - obsNear.x);
+    steel += vec3(0.10, 0.14, 0.15) * pow(max(0.0, cos(ang + 2.3)), 6.0) * (1.0 - u);
+    float ring = smoothstep(-1.6, -0.1, obsSd);
+    steel += vec3(0.18, 0.34, 0.36) * ring * 0.22;
+    col = steel;
+  } else if (obsSd < 1.2) {
+    col += vec3(0.12, 0.26, 0.28) * (1.0 - abs(obsSd) / 1.2);
+  }
+  fragColor = vec4(col, 1.0);
+}`;
+
+  const V_PARTICLE = `#version 300 es
+layout(location=0) in vec2 aCorner;
+layout(location=1) in vec2 aPos;
+layout(location=2) in vec4 aColor;
+uniform vec2 uCss;
+uniform float uSize;
+out vec2 vLocal;
+out vec4 vColor;
+void main(){
+  vec2 p = aPos + aCorner * uSize;
+  vec2 clip = vec2(p.x / uCss.x * 2.0 - 1.0, 1.0 - p.y / uCss.y * 2.0);
+  gl_Position = vec4(clip, 0.0, 1.0);
+  vLocal = aCorner;
+  vColor = aColor;
+}`;
+
+  const F_PARTICLE = `#version 300 es
+precision highp float;
+in vec2 vLocal;
+in vec4 vColor;
+out vec4 fragColor;
+void main(){
+  float r2 = dot(vLocal, vLocal);
+  if (r2 > 1.0) discard;
+  float a = exp(-3.4 * r2);
+  float core = exp(-10.0 * r2);
+  fragColor = vec4(vColor.rgb * (a * 0.72 + core * 0.50) * vColor.a, a);
+}`;
+
+  const V_VECTOR = `#version 300 es
+layout(location=0) in vec2 aPos;
+layout(location=1) in vec4 aColor;
+uniform vec2 uCss;
+out vec4 vColor;
+void main(){
+  vec2 clip = vec2(aPos.x / uCss.x * 2.0 - 1.0, 1.0 - aPos.y / uCss.y * 2.0);
+  gl_Position = vec4(clip, 0.0, 1.0);
+  vColor = aColor;
+}`;
+
+  const F_VECTOR = `#version 300 es
+precision highp float;
+in vec4 vColor;
+out vec4 fragColor;
+void main(){ fragColor = vec4(vColor.rgb * vColor.a, 1.0); }`;
+
+  function compile(type, src) {
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+      const log = gl.getShaderInfoLog(sh);
+      gl.deleteShader(sh);
+      throw new Error('Shader compile failed: ' + log);
+    }
+    return sh;
+  }
+  function program(vsSrc, fsSrc) {
+    const p = gl.createProgram();
+    const vs = compile(gl.VERTEX_SHADER, vsSrc);
+    const fs = compile(gl.FRAGMENT_SHADER, fsSrc);
+    gl.attachShader(p, vs); gl.attachShader(p, fs);
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('Program link failed: ' + gl.getProgramInfoLog(p));
+    gl.deleteShader(vs); gl.deleteShader(fs);
+    return p;
+  }
+  function uniforms(p, names) {
+    const o = {};
+    for (const n of names) o[n] = gl.getUniformLocation(p, n);
+    return o;
+  }
+
+  let progDensity, progComposite, progParticle, progVector;
+  try {
+    progDensity = program(V_DENSITY, F_DENSITY);
+    progComposite = program(V_FULL, F_COMPOSITE);
+    progParticle = program(V_PARTICLE, F_PARTICLE);
+    progVector = program(V_VECTOR, F_VECTOR);
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }
+
+  const udDensity = uniforms(progDensity, ['uCss', 'uRadius', 'uWeight']);
+  const udComposite = uniforms(progComposite, [
+    'uDensity', 'uRes', 'uCss', 'uDpr', 'uTime', 'uThreshold', 'uBMin', 'uBMax', 'uMode',
+    'uObsCount', 'uObs[0]', 'uDeepA', 'uMidA', 'uLightA', 'uRimA', 'uDeepB', 'uMidB', 'uLightB', 'uRimB'
+  ]);
+  const udParticle = uniforms(progParticle, ['uCss', 'uSize']);
+  const udVector = uniforms(progVector, ['uCss']);
+
+  const quad = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+
+  const tri = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, tri);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+
+  const densityInst = new Float32Array(CAP * 3);
+  const particleInst = new Float32Array(CAP * 6);
+  const surfTop = new Float32Array(48);
+  const vectorVerts = new Float32Array(CAP * 12);
+  const obsArr = new Float32Array(48 * 3);
+
+  const densityBuf = gl.createBuffer();
+  const particleBuf = gl.createBuffer();
+  const vectorBuf = gl.createBuffer();
+
+  function makeVAO(instance) {
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    if (instance === 'density') {
+      gl.bindBuffer(gl.ARRAY_BUFFER, densityBuf);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 12, 0);
+      gl.vertexAttribDivisor(1, 1);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 12, 8);
+      gl.vertexAttribDivisor(2, 1);
+      gl.bufferData(gl.ARRAY_BUFFER, densityInst.byteLength, gl.DYNAMIC_DRAW);
+    } else {
+      gl.bindBuffer(gl.ARRAY_BUFFER, particleBuf);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 0);
+      gl.vertexAttribDivisor(1, 1);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 24, 8);
+      gl.vertexAttribDivisor(2, 1);
+      gl.bufferData(gl.ARRAY_BUFFER, particleInst.byteLength, gl.DYNAMIC_DRAW);
+    }
+    gl.bindVertexArray(null);
+    return vao;
+  }
+  const vaoDensity = makeVAO('density');
+  const vaoParticle = makeVAO('particle');
+
+  const vaoVector = gl.createVertexArray();
+  gl.bindVertexArray(vaoVector);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vectorBuf);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 24, 0);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 24, 8);
+  gl.bufferData(gl.ARRAY_BUFFER, vectorVerts.byteLength, gl.DYNAMIC_DRAW);
+  gl.bindVertexArray(null);
+
+  const vaoFull = gl.createVertexArray();
+  gl.bindVertexArray(vaoFull);
+  gl.bindBuffer(gl.ARRAY_BUFFER, tri);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindVertexArray(null);
+
+  let tex = null, fbo = null, texW = 0, texH = 0;
+
+  function disposeTarget() {
+    if (tex) gl.deleteTexture(tex);
+    if (fbo) gl.deleteFramebuffer(fbo);
+    tex = null; fbo = null;
+  }
+  function makeTarget(w, h) {
+    const internal = useFloat ? gl.RGBA16F : gl.RGBA8;
+    const type = useFloat ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE;
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, gl.RGBA, type, null);
+    const f = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (!ok && useFloat) {
+      gl.deleteTexture(t); gl.deleteFramebuffer(f);
+      useFloat = false; densityScale = 0.22;
+      return makeTarget(w, h);
+    }
+    tex = t; fbo = f;
+    texW = w; texH = h;
+  }
+
+  function ensureTarget(w, h) {
+    if (w === texW && h === texH && tex) return;
+    disposeTarget();
+    makeTarget(w, h);
+  }
+
+  function modeInt(mode) {
+    return mode === 'surface' ? 0 : mode === 'particles' ? 1 : mode === 'speed' ? 2 : mode === 'pressure' ? 3 : 4;
+  }
+
+  const pcolor = [0, 0, 0];
+  function mix3Into(out, a, b, c, t) {
+    if (t < 0.5) { const u = t * 2; out[0] = a[0] + (b[0] - a[0]) * u; out[1] = a[1] + (b[1] - a[1]) * u; out[2] = a[2] + (b[2] - a[2]) * u; }
+    else { const u = (t - 0.5) * 2; out[0] = b[0] + (c[0] - b[0]) * u; out[1] = b[1] + (c[1] - b[1]) * u; out[2] = b[2] + (c[2] - b[2]) * u; }
+    return out;
+  }
+  const C_SPEED0 = [0.02, 0.07, 0.13], C_SPEED1 = [0.0, 0.62, 0.82], C_SPEED2 = [1.0, 0.78, 0.34];
+  const C_PRESS0 = [0.05, 0.12, 0.28], C_PRESS1 = [0.0, 0.55, 0.86], C_PRESS2 = [1.0, 0.55, 0.18];
+  const C_VISC0 = [0.12, 0.45, 0.95], C_VISC1 = [0.16, 0.88, 0.80], C_VISC2 = [0.98, 0.62, 0.22];
+  function particleColor(data, i, speed, mode) {
+    const palA = state.palette, palB = state.paletteB;
+    const isB = state.twoFluid && data.group[i] === 1;
+    if (mode === 'viscosity') {
+      const base = state.params.viscosity, h = state.params.hetero;
+      const lo = Math.max(0.02, base * (1 - 1.5 * h)), hi = Math.max(lo + 0.01, base * (1 + 1.5 * h));
+      return mix3Into(pcolor, C_VISC0, C_VISC1, C_VISC2, clamp((data.visc[i] - lo) / (hi - lo), 0, 1));
+    }
+    if (mode === 'friction') {
+      const base = state.params.friction, h = state.params.hetero;
+      const lo = Math.max(0, base * (1 - 1.5 * h)), hi = Math.max(lo + 0.005, base * (1 + 1.5 * h));
+      return mix3Into(pcolor, C_VISC0, C_VISC1, C_VISC2, clamp((data.fric[i] - lo) / (hi - lo), 0, 1));
+    }
+    if (mode === 'pressure') {
+      return mix3Into(pcolor, C_PRESS0, C_PRESS1, C_PRESS2, clamp(data.press[i] * 26.0, 0, 1));
+    }
+    const mid = isB ? palB.mid : palA.mid;
+    const light = isB ? palB.light : palA.light;
+    if (mode === 'speed') {
+      return mix3Into(pcolor, C_SPEED0, C_SPEED1, C_SPEED2, clamp(speed / 90, 0, 1));
+    }
+    return lerp3(mid, light, clamp(speed / 150, 0, 1));
+  }
+
+  function resize(w, h) { ensureTarget(w, h); }
+
+  function draw(sim, state, time) {
+    const n = sim.n;
+    const data = sim.data;
+    const mode = state.view;
+    const W = canvas.width, H = canvas.height;
+    if (W === 0 || H === 0) return;
+    ensureTarget(W, H);
+
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.viewport(0, 0, W, H);
+
+    if (mode === 'surface' && n > 0) {
+      let k = 0;
+      for (let i = 0; i < n; i++) {
+        densityInst[k++] = data.px[i];
+        densityInst[k++] = data.py[i];
+        densityInst[k++] = state.twoFluid ? data.group[i] : 0;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.useProgram(progDensity);
+      gl.bindVertexArray(vaoDensity);
+      gl.bindBuffer(gl.ARRAY_BUFFER, densityBuf);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, densityInst.subarray(0, n * 3));
+      const radius = Math.max(8, sim.spacing * (state.preset === 'mercury' ? 1.75 : 1.90));
+      const weight = sim.mass * 3.6 / (Math.PI * radius * radius) * densityScale;
+      gl.uniform2f(udDensity.uCss, stageW, stageH);
+      gl.uniform1f(udDensity.uRadius, radius);
+      gl.uniform1f(udDensity.uWeight, weight);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
+      gl.bindVertexArray(null);
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.disable(gl.BLEND);
+    gl.useProgram(progComposite);
+    gl.bindVertexArray(vaoFull);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(udComposite.uDensity, 0);
+    gl.uniform2f(udComposite.uRes, W, H);
+    gl.uniform2f(udComposite.uCss, stageW, stageH);
+    gl.uniform1f(udComposite.uDpr, dpr);
+    gl.uniform1f(udComposite.uTime, time);
+    gl.uniform1f(udComposite.uThreshold, 0.62 * densityScale);
+    gl.uniform2f(udComposite.uBMin, sim.bounds.x0, sim.bounds.y0);
+    gl.uniform2f(udComposite.uBMax, sim.bounds.x1, sim.bounds.y1);
+    gl.uniform1i(udComposite.uMode, modeInt(mode));
+    const obs = sim.obstacles;
+    const oc = Math.min(48, obs.length);
+    obsArr.fill(0);
+    for (let i = 0; i < oc; i++) {
+      obsArr[i * 3] = obs[i].x;
+      obsArr[i * 3 + 1] = obs[i].y;
+      obsArr[i * 3 + 2] = obs[i].r;
+    }
+    gl.uniform1i(udComposite.uObsCount, oc);
+    gl.uniform3fv(udComposite['uObs[0]'], obsArr);
+    const A = state.palette, B = state.paletteB;
+    gl.uniform3fv(udComposite.uDeepA, A.deep);
+    gl.uniform3fv(udComposite.uMidA, A.mid);
+    gl.uniform3fv(udComposite.uLightA, A.light);
+    gl.uniform3fv(udComposite.uRimA, A.rim);
+    gl.uniform3fv(udComposite.uDeepB, B.deep);
+    gl.uniform3fv(udComposite.uMidB, B.mid);
+    gl.uniform3fv(udComposite.uLightB, B.light);
+    gl.uniform3fv(udComposite.uRimB, B.rim);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+
+    if (mode !== 'surface' && n > 0) {
+      const size = Math.max(5.0, sim.spacing * 0.92);
+      const jit = sim.spacing * 0.24;
+      let k = 0;
+      for (let i = 0; i < n; i++) {
+        const sp = Math.sqrt(data.vx[i] * data.vx[i] + data.vy[i] * data.vy[i]);
+        const c = particleColor(data, i, sp, mode);
+        const a = mode === 'particles' ? 0.55 : 0.44 + 0.26 * clamp(sp / 150, 0, 1);
+        const jx = (data.noise1[i] - 0.5) * jit;
+        const jy = Math.sin(i * 12.9898 + 4.1) * jit;
+        particleInst[k++] = data.px[i] + jx;
+        particleInst[k++] = data.py[i] + jy;
+        particleInst[k++] = c[0];
+        particleInst[k++] = c[1];
+        particleInst[k++] = c[2];
+        particleInst[k++] = a;
+      }
+      gl.useProgram(progParticle);
+      gl.bindVertexArray(vaoParticle);
+      gl.bindBuffer(gl.ARRAY_BUFFER, particleBuf);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, particleInst.subarray(0, n * 6));
+      gl.uniform2f(udParticle.uCss, stageW, stageH);
+      gl.uniform1f(udParticle.uSize, size);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
+      gl.bindVertexArray(null);
+    }
+
+    if (mode === 'surface' && n > 0) {
+      let k = 0;
+      const pal = state.palette.light;
+      const bins = 48;
+      const b = sim.bounds, span = Math.max(1, b.x1 - b.x0);
+      surfTop.fill(1e9);
+      for (let i = 0; i < n; i++) {
+        const bi = Math.max(0, Math.min(bins - 1, Math.floor((data.px[i] - b.x0) / span * bins)));
+        if (data.py[i] < surfTop[bi]) surfTop[bi] = data.py[i];
+      }
+      for (let i = 0; i < n; i++) {
+        if ((i & 1) === 0) continue;
+        const bi = Math.max(0, Math.min(bins - 1, Math.floor((data.px[i] - b.x0) / span * bins)));
+        if (data.py[i] > surfTop[bi] + sim.spacing * 1.6) continue;
+        particleInst[k++] = data.px[i];
+        particleInst[k++] = data.py[i];
+        particleInst[k++] = pal[0];
+        particleInst[k++] = pal[1];
+        particleInst[k++] = pal[2];
+        particleInst[k++] = 0.28;
+      }
+      const sn = k / 6;
+      if (sn > 0) {
+        gl.useProgram(progParticle);
+        gl.bindVertexArray(vaoParticle);
+        gl.bindBuffer(gl.ARRAY_BUFFER, particleBuf);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, particleInst.subarray(0, sn * 6));
+        gl.uniform2f(udParticle.uCss, stageW, stageH);
+        gl.uniform1f(udParticle.uSize, Math.max(1.6, sim.spacing * 0.40));
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, sn);
+        gl.bindVertexArray(null);
+      }
+    }
+
+    if (state.showVectors && n > 0) {
+      let k = 0, count = 0;
+      for (let i = 0; i < n; i++) {
+        const sp2 = data.vx[i] * data.vx[i] + data.vy[i] * data.vy[i];
+        if (sp2 < 90) continue;
+        const sp = Math.sqrt(sp2);
+        const len = Math.min(60, sp * 0.22);
+        const ex = data.px[i] + data.vx[i] / sp * len;
+        const ey = data.py[i] + data.vy[i] / sp * len;
+        const c = state.twoFluid && data.group[i] === 1 ? state.paletteB.light : state.palette.light;
+        const a = clamp(sp / 300, 0.06, 0.42);
+        vectorVerts[k++] = data.px[i]; vectorVerts[k++] = data.py[i];
+        vectorVerts[k++] = c[0] * 0.35; vectorVerts[k++] = c[1] * 0.35; vectorVerts[k++] = c[2] * 0.35; vectorVerts[k++] = a * 0.5;
+        vectorVerts[k++] = ex; vectorVerts[k++] = ey;
+        vectorVerts[k++] = c[0]; vectorVerts[k++] = c[1]; vectorVerts[k++] = c[2]; vectorVerts[k++] = a;
+        count += 2;
+      }
+      if (count) {
+        gl.useProgram(progVector);
+        gl.bindVertexArray(vaoVector);
+        gl.bindBuffer(gl.ARRAY_BUFFER, vectorBuf);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, vectorVerts.subarray(0, k));
+        gl.uniform2f(udVector.uCss, stageW, stageH);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE);
+        gl.drawArrays(gl.LINES, 0, count);
+        gl.bindVertexArray(null);
+      }
+    }
+    gl.disable(gl.BLEND);
+  }
+
+  return { resize, draw, gl };
+}
+
+/* ---------------- Canvas 2D 退化渲染 ---------------- */
+function createFallbackRenderer(oldCanvas) {
+  const nc = document.createElement('canvas');
+  nc.id = 'glCanvas';
+  nc.setAttribute('aria-label', '二维粒子流体模拟画布');
+  oldCanvas.parentNode.replaceChild(nc, oldCanvas);
+  glCanvas = nc;
+  const ctx = nc.getContext('2d');
+  let W = 1, H = 1;
+
+  function resize(w, h) { W = w; H = h; nc.width = w; nc.height = h; }
+
+  function draw(sim, state) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const cw = nc.width / dpr, ch = nc.height / dpr;
+    const g = ctx.createLinearGradient(0, 0, 0, ch);
+    g.addColorStop(0, '#070d12');
+    g.addColorStop(1, '#0a1319');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, cw, ch);
+
+    ctx.strokeStyle = 'rgba(110,160,175,.12)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= cw; x += 28) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ch); ctx.stroke(); }
+    for (let y = 0; y <= ch; y += 28) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cw, y); ctx.stroke(); }
+
+    const b = sim.bounds;
+    ctx.strokeStyle = 'rgba(70,216,199,.45)';
+    ctx.strokeRect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+
+    for (const o of sim.obstacles) {
+      const rg = ctx.createRadialGradient(o.x - o.r * .35, o.y - o.r * .35, 1, o.x, o.y, o.r);
+      rg.addColorStop(0, '#40535e'); rg.addColorStop(1, '#101a21');
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(140,200,205,.35)';
+      ctx.stroke();
+    }
+
+    const data = sim.data;
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < sim.n; i++) {
+      const sp = Math.sqrt(data.vx[i] * data.vx[i] + data.vy[i] * data.vy[i]);
+      let c;
+      if (state.view === 'pressure') {
+        c = data.press[i] > 0 ? [240, 165, 78] : [60, 150, 190];
+      } else if (state.view === 'viscosity') {
+        c = lerp3([120, 225, 215], [240, 175, 80], clamp(data.visc[i], 0, 1));
+      } else {
+        c = state.twoFluid && data.group[i] === 1 ? state.paletteB.light : state.palette.light;
+      }
+      const a = 0.30 + 0.25 * clamp(sp / 150, 0, 1);
+      ctx.fillStyle = rgba(c, a);
+      ctx.beginPath();
+      ctx.arc(data.px[i], data.py[i], Math.max(1.6, sim.spacing * 0.42), 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  return { resize, draw };
+}
+
+let renderer;
+try {
+  renderer = createGLRenderer(glCanvas);
+} catch (err) {
+  console.warn('WebGL2 renderer unavailable, falling back to Canvas2D:', err);
+  renderer = createFallbackRenderer(glCanvas);
+  toastSoon('当前环境不支持 WebGL2，已切换到基础粒子渲染');
+}
+
+/* ---------------- 尺寸同步 ---------------- */
+function layoutCanvas() {
+  const rect = stageEl.getBoundingClientRect();
+  stageW = Math.max(220, Math.round(rect.width));
+  stageH = Math.max(220, Math.round(rect.height));
+  dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+  const w = Math.round(stageW * dpr), h = Math.round(stageH * dpr);
+  if (glCanvas.width !== w || glCanvas.height !== h) {
+    glCanvas.width = w; glCanvas.height = h;
+    fxCanvas.width = w; fxCanvas.height = h;
+    renderer.resize(w, h);
+  }
+  fxCanvas.style.width = stageW + 'px';
+  fxCanvas.style.height = stageH + 'px';
+  fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (sim.n > 0) sim.resize(stageW, stageH);
+  sim.updateMeta();
+}
+
+/* ---------------- UI 绑定 ---------------- */
+const RANGES = [
+  { el: $('sVisc'), out: $('oVisc'), key: 'viscosity', fmt: v => v.toFixed(2), mat: true },
+  { el: $('sHetero'), out: $('oHetero'), key: 'hetero', fmt: v => v.toFixed(2), mat: true },
+  { el: $('sFriction'), out: $('oFriction'), key: 'friction', fmt: v => v.toFixed(2), mat: true },
+  { el: $('sSigma'), out: $('oSigma'), key: 'sigma', fmt: v => v.toFixed(2) },
+  { el: $('sGravity'), out: $('oGravity'), key: 'gravity', fmt: v => Math.round(v) + '<small>px/s²</small>' },
+  { el: $('sVort'), out: $('oVort'), key: 'vorticity', fmt: v => v.toFixed(2) },
+  { el: $('sTime'), out: $('oTime'), key: 'timeScale', fmt: v => v.toFixed(2) + '<small>×</small>' },
+  { el: $('sIter'), out: $('oIter'), key: 'iterations', fmt: v => Math.round(v) + '<small>次</small>' },
+  { el: $('sWind'), out: $('oWind'), key: 'wind', fmt: v => v.toFixed(0) },
+  { el: $('sShaker'), out: $('oShaker'), key: 'shaker', fmt: v => v.toFixed(2) },
+  { el: $('sCount'), out: $('oCount'), key: 'count', fmt: v => Math.round(v).toLocaleString() + '<small>P</small>' }
+];
+
+function setFill(el) {
+  const min = parseFloat(el.min), max = parseFloat(el.max), v = parseFloat(el.value);
+  el.style.setProperty('--fill', ((v - min) / (max - min) * 100).toFixed(2) + '%');
+}
+
+function syncControls() {
+  for (const r of RANGES) {
+    r.el.value = state.params[r.key];
+    r.out.innerHTML = r.fmt(parseFloat(r.el.value));
+    setFill(r.el);
+  }
+  $('tgVectors').checked = state.showVectors;
+  $('tgDual').checked = state.twoFluid;
+  $('solverLabel').textContent = `PBF · ${Math.round(state.params.iterations)} ITER`;
+}
+
+RANGES.forEach(r => {
+  r.el.addEventListener('input', () => {
+    const v = parseFloat(r.el.value);
+    state.params[r.key] = v;
+    r.out.innerHTML = r.fmt(v);
+    setFill(r.el);
+    if (r.mat) sim.applyMaterial();
+    if (r.key === 'iterations') $('solverLabel').textContent = `PBF · ${Math.round(v)} ITER`;
+  });
+});
+
+$('sCount').addEventListener('change', () => {
+  state.params.count = parseInt($('sCount').value, 10);
+  sim.rebuild(state.params.count);
+  toast(`已重建 ${sim.n} 个粒子`);
+});
+
+function setPreset(key) {
+  const p = PRESETS[key];
+  if (!p) return;
+  state.preset = key;
+  state.params.viscosity = p.visc;
+  state.params.hetero = p.hetero;
+  state.params.friction = p.friction;
+  state.params.sigma = p.sigma;
+  state.params.gravity = p.gravity;
+  state.params.vorticity = p.vort;
+  state.twoFluid = p.twoFluid;
+  state.palette = p.palA;
+  state.paletteB = p.palB;
+  sim.setTwoFluid(state.twoFluid);
+  sim.applyMaterial();
+  syncControls();
+  document.querySelectorAll('.preset').forEach(b => b.classList.toggle('is-active', b.dataset.preset === key));
+  toast('材料：' + p.label);
+}
+
+document.querySelectorAll('.preset').forEach(btn => {
+  btn.addEventListener('click', () => setPreset(btn.dataset.preset));
+});
+
+const VIEW_NAMES = { surface: 'SURFACE', particles: 'PARTICLES', speed: 'SPEED', pressure: 'PRESSURE', viscosity: 'VISCOSITY', friction: 'FRICTION' };
+function setView(v) {
+  state.view = v;
+  document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('is-active', b.dataset.view === v));
+  $('viewLabel').textContent = VIEW_NAMES[v] || 'SURFACE';
+  const leg = $('viewLeg'), lo = $('legLo'), hi = $('legHi'), bar = $('legBar');
+  if (v === 'surface' || v === 'particles') { leg.hidden = true; }
+  else {
+    leg.hidden = false;
+    if (v === 'speed') { lo.textContent = '慢'; hi.textContent = '快'; bar.style.background = 'linear-gradient(90deg,#0e2340,#2b8fb0,#46d8c7,#e8a24a)'; }
+    else if (v === 'pressure') { lo.textContent = '低压'; hi.textContent = '高压'; bar.style.background = 'linear-gradient(90deg,#0e2340,#2b8fb0,#46d8c7,#e8a24a)'; }
+    else if (v === 'viscosity') { lo.textContent = '低粘'; hi.textContent = '高粘'; bar.style.background = 'linear-gradient(90deg,#16305c,#2b8fb0,#46d8c7,#e8a24a)'; }
+    else { lo.textContent = '低摩擦'; hi.textContent = '高摩擦'; bar.style.background = 'linear-gradient(90deg,#16305c,#2b8fb0,#46d8c7,#e8a24a)'; }
+  }
+}
+document.querySelectorAll('#viewSeg button').forEach(btn => {
+  btn.addEventListener('click', () => setView(btn.dataset.view));
+});
+
+const TOOL_TIPS = {
+  stir: '搅拌：拖拽产生局部剪切与涡旋',
+  attract: '吸引：把粒子拉向指针',
+  repel: '排斥：把粒子推离指针',
+  inject: '注入：按住左键持续加入粒子',
+  wall: '障碍：拖拽绘制，Shift 或右键擦除'
+};
+function setTool(t, silent) {
+  state.tool = t;
+  state.pointer.tool = t;
+  document.querySelectorAll('.tool').forEach(b => {
+    const on = b.dataset.tool === t;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  if (!silent) toast(TOOL_TIPS[t] || '');
+}
+document.querySelectorAll('.tool').forEach(btn => {
+  btn.addEventListener('click', () => setTool(btn.dataset.tool));
+});
+
+let lastFocus = null;
+function openHelp() {
+  lastFocus = document.activeElement;
+  const m = $('helpModal');
+  m.classList.add('is-open');
+  m.setAttribute('aria-hidden', 'false');
+  $('btnHelpClose').focus();
+}
+function closeHelp() {
+  const m = $('helpModal');
+  m.classList.remove('is-open');
+  m.setAttribute('aria-hidden', 'true');
+  if (lastFocus) lastFocus.focus();
+}
+$('btnHelp').addEventListener('click', openHelp);
+$('btnHelp2').addEventListener('click', openHelp);
+$('btnHelpClose').addEventListener('click', closeHelp);
+$('helpModal').addEventListener('click', (e) => { if (e.target === $('helpModal')) closeHelp(); });
+
+function toggleConsole(force) {
+  const c = $('console');
+  const on = typeof force === 'boolean' ? force : !c.classList.contains('is-open');
+  c.classList.toggle('is-open', on);
+}
+$('btnConsole').addEventListener('click', () => toggleConsole());
+$('btnConsoleClose').addEventListener('click', () => toggleConsole(false));
+
+/* ---------------- 暂停 / 操作 ---------------- */
+const PAUSE_PATH = '<path d="M9 6v12M15 6v12"/>';
+const PLAY_PATH = '<path d="M8 5l11 7-11 7z"/>';
+function setPaused(on, silent) {
+  state.paused = on;
+  $('runLabel').textContent = on ? 'PAUSED' : 'RUNNING';
+  $('runDot').classList.toggle('paused', on);
+  $('runLabel').classList.toggle('paused', on);
+  $('pauseIcon').innerHTML = on ? PLAY_PATH : PAUSE_PATH;
+  $('pauseIconTop').innerHTML = on ? PLAY_PATH : PAUSE_PATH;
+  $('pauseLabelTop').textContent = on ? '继续' : '暂停';
+  $('btnPause').classList.toggle('is-active', on);
+  $('btnPause').setAttribute('aria-label', on ? '继续' : '暂停');
+  $('btnPause').title = on ? '继续 (Space)' : '暂停 (Space)';
+  if (!silent) toast(on ? '已暂停' : '继续运行');
+}
+$('btnPause').addEventListener('click', () => setPaused(!state.paused));
+$('btnPauseTop').addEventListener('click', () => setPaused(!state.paused));
+$('btnStep').addEventListener('click', () => {
+  if (!state.paused) setPaused(true, true);
+  sim.step((1 / 60) * state.params.timeScale, Math.round(state.params.iterations));
+  renderer.draw(sim, state, performance.now() / 1000);
+  toast('单步 +1 帧');
+});
+$('btnReset').addEventListener('click', resetFluid);
+$('btnResetFluid').addEventListener('click', resetFluid);
+function resetFluid() {
+  sim.rebuild(state.params.count);
+  toast('流体已重置');
+}
+$('btnClearWalls').addEventListener('click', () => {
+  sim.clearObstacles();
+  toast('障碍已清空');
+});
+$('btnShake').addEventListener('click', () => {
+  sim.shake(1);
+  toast('容器晃动');
+});
+$('btnPour').addEventListener('click', () => {
+  const b = sim.bounds;
+  const added = sim.addParticles(120, (b.x0 + b.x1) / 2 + (Math.random() - 0.5) * 80, b.y0 + 20, 38, (Math.random() - 0.5) * 40, 130);
+  toast(added ? `注入 ${added} 个粒子` : '粒子容量已满');
+});
+$('btnShot').addEventListener('click', saveShot);
+function saveShot() {
+  renderer.draw(sim, state, performance.now() / 1000);
+  const stamp = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const name = `粒子流体_${stamp.getFullYear()}${pad(stamp.getMonth() + 1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}.png`;
+  const out = document.createElement('canvas');
+  out.width = glCanvas.width; out.height = glCanvas.height;
+  const octx = out.getContext('2d');
+  octx.drawImage(glCanvas, 0, 0);
+  octx.drawImage(fxCanvas, 0, 0);
+  out.toBlob(blob => {
+    if (!blob) { toast('截图失败'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast('PNG 已保存');
+  }, 'image/png');
+}
+
+$('tgVectors').addEventListener('change', e => {
+  state.showVectors = e.target.checked;
+  toast(e.target.checked ? '显示速度矢量场' : '隐藏速度矢量场');
+});
+$('tgDrip').addEventListener('change', e => { state.autoDrip = e.target.checked; });
+$('tgDual').addEventListener('change', e => {
+  state.twoFluid = e.target.checked;
+  sim.setTwoFluid(state.twoFluid);
+  sim.applyMaterial();
+  toast(state.twoFluid ? '双流体已开启：右侧高粘相' : '已切换为单流体');
+});
+
+/* ---------------- 指针交互 ---------------- */
+const pointer = state.pointer;
+let wallLastX = null, wallLastY = null;
+
+function pointerPos(e) {
+  const r = glCanvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+function paintWall(x, y, erase, immediate) {
+  const R = clamp(pointer.radius * 0.30, 8, 36);
+  const list = sim.obstacles;
+  if (erase) {
+    for (let i = list.length - 1; i >= 0; i--) {
+      const dx = list[i].x - x, dy = list[i].y - y;
+      if (dx * dx + dy * dy < (list[i].r + R + 10) ** 2) list.splice(i, 1);
+    }
+    wallLastX = x; wallLastY = y;
+    return;
+  }
+  if (list.length >= 48) {
+    if (!paintWall.warned) { paintWall.warned = true; toast('障碍数量已达上限（48）'); }
+    return;
+  }
+  if (immediate || wallLastX === null) {
+    list.push({ x, y, r: R });
+  } else {
+    const dx = x - wallLastX, dy = y - wallLastY;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < R * 0.5) return;
+    const steps = Math.min(10, Math.max(1, Math.ceil(d / (R * 0.55))));
+    for (let k = 1; k <= steps; k++) {
+      const t = k / steps;
+      if (list.length >= 48) break;
+      list.push({ x: wallLastX + dx * t, y: wallLastY + dy * t, r: R });
+    }
+  }
+  wallLastX = x; wallLastY = y;
+}
+
+glCanvas.addEventListener('pointerdown', e => {
+  const { x, y } = pointerPos(e);
+  const erase = e.button === 2 || e.shiftKey;
+  if (e.button === 2 && state.tool !== 'wall') return;
+  e.preventDefault();
+  pointer.x = x; pointer.y = y; pointer.px = x; pointer.py = y;
+  pointer.vx = 0; pointer.vy = 0;
+  pointer.down = true; pointer.inside = true; pointer.erase = erase;
+  wallLastX = null; wallLastY = null;
+  if (state.tool === 'wall') paintWall(x, y, erase, true);
+  if (state.tool === 'inject') sim.addParticles(8, x, y, 12, 0, 60);
+  glCanvas.setPointerCapture(e.pointerId);
+  $('stageNote').classList.add('hide');
+});
+
+glCanvas.addEventListener('pointermove', e => {
+  const { x, y } = pointerPos(e);
+  const now = performance.now();
+  if (!pointer.inside) {
+    pointer.px = x; pointer.py = y; pointer.inside = true;
+  }
+  const dt = Math.max(8, now - (pointer._t || now));
+  const ivx = (x - pointer.px) / (dt / 1000);
+  const ivy = (y - pointer.py) / (dt / 1000);
+  pointer.vx = clamp(pointer.vx * 0.80 + ivx * 0.20, -800, 800);
+  pointer.vy = clamp(pointer.vy * 0.80 + ivy * 0.20, -800, 800);
+  pointer.x = x; pointer.y = y; pointer.px = x; pointer.py = y; pointer._t = now;
+  if (pointer.down && state.tool === 'wall') paintWall(x, y, pointer.erase, false);
+  $('stageNote').classList.add('hide');
+});
+
+function endPointer() {
+  pointer.down = false;
+  pointer.vx = 0; pointer.vy = 0;
+  wallLastX = null; wallLastY = null;
+}
+glCanvas.addEventListener('pointerup', endPointer);
+glCanvas.addEventListener('pointercancel', endPointer);
+glCanvas.addEventListener('pointerleave', () => { pointer.inside = false; });
+glCanvas.addEventListener('contextmenu', e => e.preventDefault());
+glCanvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  pointer.radius = clamp(pointer.radius - e.deltaY * 0.16, 30, 240);
+  $('brushRead').textContent = Math.round(pointer.radius);
+}, { passive: false });
+glCanvas.addEventListener('dblclick', e => {
+  const { x, y } = pointerPos(e);
+  sim.burst(x, y, 170, 1);
+  toast('冲击波');
+});
+
+/* ---------------- 键盘 ---------------- */
+window.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (e.key === ' ') { e.preventDefault(); setPaused(!state.paused); }
+  else if (e.key === 'r' || e.key === 'R') resetFluid();
+  else if (e.key === 'h' || e.key === 'H') openHelp();
+  else if (e.key === '.') $('btnStep').click();
+  else if (e.key === 'Escape') { closeHelp(); toggleConsole(false); }
+  else if (['1', '2', '3', '4', '5'].includes(e.key)) {
+    setTool(['stir', 'attract', 'repel', 'inject', 'wall'][parseInt(e.key, 10) - 1]);
+  } else if (e.key === 'v' || e.key === 'V') {
+    const order = ['surface', 'particles', 'speed', 'pressure', 'viscosity', 'friction'];
+    setView(order[(order.indexOf(state.view) + 1) % order.length]);
+  }
+});
+
+/* ---------------- 覆盖层：笔刷与提示 ---------------- */
+const TOOL_COLORS = {
+  stir: '#46d8c7', attract: '#8bd8ff', repel: '#e2a45f', inject: '#e2a45f', wall: '#93a9b3'
+};
+function drawOverlay() {
+  fxCtx.clearRect(0, 0, stageW, stageH);
+  const b = sim.bounds;
+  fxCtx.save();
+  const sheen = fxCtx.createLinearGradient(0, 0, stageW * 0.55, stageH);
+  sheen.addColorStop(0, 'rgba(150,235,230,0.055)');
+  sheen.addColorStop(0.35, 'rgba(150,235,230,0.012)');
+  sheen.addColorStop(1, 'rgba(150,235,230,0)');
+  fxCtx.fillStyle = sheen;
+  fxCtx.beginPath();
+  fxCtx.moveTo(0, 0); fxCtx.lineTo(stageW * 0.52, 0); fxCtx.lineTo(stageW * 0.18, stageH); fxCtx.lineTo(0, stageH);
+  fxCtx.closePath(); fxCtx.fill();
+  fxCtx.strokeStyle = 'rgba(120,225,220,0.26)';
+  fxCtx.lineWidth = 1;
+  const br = 18;
+  for (const [x, y, sx, sy] of [[b.x0,b.y0,1,1],[b.x1,b.y0,-1,1],[b.x0,b.y1,1,-1],[b.x1,b.y1,-1,-1]]) {
+    fxCtx.beginPath();
+    fxCtx.moveTo(x + sx * br, y); fxCtx.lineTo(x, y); fxCtx.lineTo(x, y + sy * br);
+    fxCtx.stroke();
+  }
+  fxCtx.globalAlpha = 0.32;
+  fxCtx.font = '9px ui-monospace, monospace';
+  fxCtx.fillStyle = '#7fe9de';
+  const nBins = 15;
+  const cx0 = b.x0 + (b.x1 - b.x0) * 0.22, cx1 = b.x0 + (b.x1 - b.x0) * 0.78;
+  const bw = (cx1 - cx0) / nBins;
+  const tops = new Float32Array(nBins).fill(1e9);
+  for (let i = 0; i < sim.n; i++) {
+    const x = sim.data.px[i];
+    if (x < cx0 || x > cx1) continue;
+    const bi = Math.min(nBins - 1, Math.floor((x - cx0) / bw));
+    if (sim.data.py[i] < tops[bi]) tops[bi] = sim.data.py[i];
+  }
+  const valid = [];
+  for (let i = 0; i < nBins; i++) if (tops[i] < 1e8) valid.push(tops[i]);
+  valid.sort((a, c) => a - c);
+  let sy = valid.length ? valid[Math.floor(valid.length * 0.5)] : Infinity;
+  if (Number.isFinite(sy)) {
+    const lv = Math.round((b.y1 - sy) / (b.y1 - b.y0) * 100);
+    fxCtx.setLineDash([3, 4]);
+    fxCtx.beginPath();
+    fxCtx.moveTo(b.x1 - 72, sy); fxCtx.lineTo(b.x1 - 8, sy);
+    fxCtx.strokeStyle = 'rgba(127,233,222,0.38)'; fxCtx.stroke();
+    fxCtx.setLineDash([]);
+    fxCtx.fillText('LEVEL ' + lv + '%', b.x1 - 72, sy - 6);
+  }
+  fxCtx.restore();
+  if (!pointer.inside) return;
+  const c = TOOL_COLORS[state.tool] || '#46d8c7';
+  const r = pointer.radius;
+  fxCtx.save();
+  fxCtx.strokeStyle = c;
+  fxCtx.globalAlpha = pointer.down ? 0.9 : 0.55;
+  fxCtx.lineWidth = 1;
+  fxCtx.setLineDash([4, 5]);
+  fxCtx.beginPath();
+  fxCtx.arc(pointer.x, pointer.y, r, 0, TAU);
+  fxCtx.stroke();
+  fxCtx.setLineDash([]);
+  fxCtx.globalAlpha = 0.35;
+  fxCtx.beginPath();
+  fxCtx.moveTo(pointer.x - 5, pointer.y); fxCtx.lineTo(pointer.x + 5, pointer.y);
+  fxCtx.moveTo(pointer.x, pointer.y - 5); fxCtx.lineTo(pointer.x, pointer.y + 5);
+  fxCtx.stroke();
+  fxCtx.globalAlpha = 0.7;
+  fxCtx.font = '9px ui-monospace, monospace';
+  fxCtx.fillStyle = c;
+  fxCtx.fillText('R ' + Math.round(r), pointer.x + r * 0.72, pointer.y - r * 0.72);
+  if (state.tool === 'wall') {
+    const wr = clamp(pointer.radius * 0.30, 8, 36);
+    fxCtx.globalAlpha = 0.18;
+    fxCtx.fillStyle = c;
+    fxCtx.beginPath();
+    fxCtx.arc(pointer.x, pointer.y, wr, 0, TAU);
+    fxCtx.fill();
+  }
+  fxCtx.restore();
+}
+
+/* ---------------- 统计 / 提示 ---------------- */
+let toastTimer = 0;
+function toast(msg, ms = 1700) {
+  if (!msg) return;
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+function toastSoon(msg) { setTimeout(() => toast(msg), 700); }
+
+let fps = 60, statClock = 0, perfWarned = false, startedAt = performance.now();
+function updateStats(now, rawDt) {
+  if (rawDt > 0.0005) {
+    const inst = 1 / rawDt;
+    fps = fps * 0.9 + clamp(inst, 1, 240) * 0.1;
+  }
+  if (now - statClock < 240) return;
+  statClock = now;
+  const st = sim.measure();
+  const b = sim.bounds;
+  const Re = Math.round(st.avgSpeed * (b.y1 - b.y0) / (40 + state.params.viscosity * 1400));
+  $('vFps').textContent = Math.round(fps);
+  $('vCount').textContent = sim.n.toLocaleString('en-US');
+  $('vSpeed').innerHTML = st.avgSpeed.toFixed(1) + '<small>px/s</small>';
+  $('vErr').innerHTML = (st.err * 100).toFixed(1) + '<small>%</small>';
+  $('vRe').textContent = Number.isFinite(Re) ? Re : '--';
+  if (!perfWarned && now - startedAt > 5000 && fps < 32 && sim.n > 2200) {
+    perfWarned = true;
+    toast('帧率偏低：可降低粒子数量或约束迭代', 2600);
+  }
+}
+
+/* ---------------- 主循环 ---------------- */
+let lastTime = performance.now();
+let injectAcc = 0;
+let dripAcc = 0;
+
+function frame(now) {
+  const rawDt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
+  lastTime = now;
+
+  if (!state.paused) {
+    if (state.autoDrip && sim.n < 2590) {
+      dripAcc += rawDt;
+      if (dripAcc > 1.15) {
+        dripAcc = 0;
+        const b = sim.bounds;
+        sim.addParticles(1, b.x0 + (b.x1 - b.x0) * (0.28 + Math.random() * 0.44), b.y0 + 66, 2.0, 0, 150);
+      }
+    }
+    if (pointer.down && pointer.tool === 'inject') {
+      injectAcc += 1;
+      if (injectAcc >= 1.25) {
+        injectAcc = 0;
+        sim.addParticles(3, pointer.x, pointer.y, 17, pointer.vx * 0.25, pointer.vy * 0.25 + 45);
+      }
+    }
+    if (pointer.down && pointer.tool === 'stir') {
+      pointer.vx *= 0.92;
+      pointer.vy *= 0.92;
+    }
+    sim.step(rawDt * state.params.timeScale, Math.round(state.params.iterations));
+  }
+
+  renderer.draw(sim, state, now / 1000);
+  drawOverlay();
+  updateStats(now, rawDt);
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- 初始化 ---------------- */
+layoutCanvas();
+sim.rebuild(state.params.count);
+for (let k = 0; k < 30; k++) sim.step(1 / 120, 2);
+layoutCanvas();
+setView(state.view);
+setTool('stir', true);
+syncControls();
+toast('拖拽水体开始实验', 2600);
+$('brushRead').textContent = Math.round(pointer.radius);
+
+const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (reduceMotion) setPaused(true, true);
+requestAnimationFrame(frame);
+
+let resizeTimer = 0;
+if (window.ResizeObserver) {
+  const ro = new ResizeObserver(() => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => layoutCanvas(), 90);
+  });
+  ro.observe(stageEl);
+} else {
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => layoutCanvas(), 90);
+  });
+}
+
+})();
+</script>
+</body>
+</html>
